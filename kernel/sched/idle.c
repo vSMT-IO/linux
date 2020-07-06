@@ -10,6 +10,22 @@
 
 #include <trace/events/power.h>
 
+/*wwj*/
+#include <asm/mwait.h>
+#include <asm/paravirt.h>
+//#include <asm/special_insns.h>
+//#define nop() asm volatile ("nop")
+extern int vsmtio_enable_rr;
+extern int vsmtio_mwait_loops;
+extern int vsmtio_enable_rr_nop;
+extern int vsmtio_nop_loops;
+DECLARE_PER_CPU(unsigned long, mwait_wakeup_flag);
+DECLARE_PER_CPU(unsigned long, mwait_timer_flag);
+DECLARE_PER_CPU(unsigned long, mwait_begin_cycles);
+DECLARE_PER_CPU(unsigned long, mwait_success_counter);
+DECLARE_PER_CPU(unsigned long, mwait_cr0);
+/*end*/
+
 /* Linker adds these: start and end of __cpuidle functions */
 extern char __cpuidle_text_start[], __cpuidle_text_end[];
 
@@ -217,6 +233,14 @@ exit_idle:
 	rcu_idle_exit();
 }
 
+/*wwj*/
+static unsigned long __inline__ myrdtsc(void) {
+	unsigned int tickl, tickh;
+	__asm__ __volatile__("rdtscp":"=a"(tickl),"=d"(tickh)::"%ecx");
+	return ((uint64_t)tickh << 32)|tickl;
+}
+/*end*/
+
 /*
  * Generic idle loop implementation
  *
@@ -225,6 +249,14 @@ exit_idle:
 static void do_idle(void)
 {
 	int cpu = smp_processor_id();
+	unsigned long *cr0_ptr = per_cpu_ptr(&mwait_cr0, cpu);
+	*cr0_ptr = read_cr0();
+	*cr0_ptr = *cr0_ptr & 0xffffffffffff00fful;
+	/*wwj*/
+	/*unsigned long begin=0;
+	unsigned long end=0;
+	unsigned long *ptr = per_cpu_ptr(&mwait_wakeup_flag, cpu);*/
+	/*end*/
 	/*
 	 * If the arch has a polling bit, we maintain an invariant:
 	 *
@@ -238,6 +270,184 @@ static void do_idle(void)
 	tick_nohz_idle_enter();
 
 	while (!need_resched()) {
+		/*wwj*/
+		if (vsmtio_enable_rr) {
+			if (vsmtio_enable_rr_nop && vsmtio_nop_loops) {
+				int _vsmtio_nop_loops = vsmtio_nop_loops;
+				while (_vsmtio_nop_loops) {
+					/*100us = 25ns * 4000
+					 * a nop = 25 ns = 50 cycles
+					 * for 2.1GHz CPU:
+					 * a cycle = 0.5 ns = 1s / (2.1*10^9)
+					 */
+					asm volatile ("nop");
+					//unsigned long begin = myrdtsc();
+					asm volatile ("nop");
+					//unsigned long end = myrdtsc();
+					//printk("nop %ld cycles\n", end - begin);
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+					asm volatile ("nop");
+				    if (need_resched()) goto vsmtiorr_out;
+					_vsmtio_nop_loops = _vsmtio_nop_loops - 1;
+				}
+			} else {
+				if (vsmtio_mwait_loops) {
+				//if (vsmtio_mwait_loops &&
+				//		(cpu == 5)) {
+					unsigned long *ptr = per_cpu_ptr(&mwait_wakeup_flag, cpu);
+					*ptr = 0;
+					unsigned long *mtf_ptr = per_cpu_ptr(&mwait_timer_flag, cpu);
+					*mtf_ptr = 0;
+					/*unsigned long begin = myrdtsc();*/
+					unsigned long *mbc_ptr = per_cpu_ptr(&mwait_begin_cycles, cpu);
+					*mbc_ptr = myrdtsc();
+					//printk(KERN_INFO "wwj-CPU%d should mwait on virt (ptr addr):%p,  phy:%lx, *ptr is %ld.\n", cpu, ptr, __pa(ptr), *ptr);
+					while (1) {
+					/* 
+					 * MWAIT/MONITOR has almost no cost to corunning HW.
+					 * while unrolling can reduce cost less than 1% in
+					 * host mode.
+					 * Since guest-mwait needs sleep long time
+					 * compared to host, so it no need to unroll but
+					 * similar to unrolling effects.
+					 * */
+						//mark cr starts
+						*cr0_ptr = read_cr0();
+						*cr0_ptr = *cr0_ptr | 0x0000000000000100ul;
+						write_cr0(*cr0_ptr);
+						__monitor((void *)ptr, 0, 0);
+						__sti_mwait(0,0);
+						//unsigned long *_ptr = __this_cpu_read(&mwait_wakeup_flag);
+						/*unsigned long __end = myrdtsc();*/
+					    unsigned long *_ptr = per_cpu_ptr(&mwait_wakeup_flag, cpu);
+						if (*_ptr == 0) { //I/O events are waited
+							unsigned long *msc_ptr = per_cpu_ptr(&mwait_success_counter, cpu);
+							*msc_ptr = *msc_ptr + 1;
+						}
+						*_ptr = 0;
+						/*printk(KERN_INFO "CPU%d sleeps for %ld cycles, *ptr is %ld\n",
+								smp_processor_id(), (__end - begin), *_ptr);*/
+						if (need_resched() ||
+							(read_cr0() & 0x0000000000001000ul)) {
+							/*unsigned long _end = myrdtsc();
+							printk(KERN_INFO "gotob-CPU%d: active-waiting for %ld cycles, *ptr is %ld.\n",
+									smp_processor_id(), (_end - begin), *_ptr);*/
+							*mtf_ptr = 1;
+							goto vsmtiorr_out;
+						}
+						unsigned long *_mtf_ptr = per_cpu_ptr(&mwait_timer_flag, cpu);
+						if (*_mtf_ptr == 1) {
+							/*unsigned long end = myrdtsc();
+							printk(KERN_INFO "wakeup-CPU%d: active-waiting for %ld cycles, *ptr is %ld.\n",
+									smp_processor_id(), (end - begin), *_ptr);*/
+							break;
+						}
+					}
+				}
+			}
+		}
+		/*end*/
+
 		check_pgt_cache();
 		rmb();
 
@@ -264,6 +474,20 @@ static void do_idle(void)
 		}
 		arch_cpu_idle_exit();
 	}
+/*wwj*/
+vsmtiorr_out:
+	if (vsmtio_mwait_loops) {
+		*cr0_ptr = read_cr0();
+		*cr0_ptr = *cr0_ptr & 0xffffffffffff00fful;
+		*cr0_ptr = *cr0_ptr | 0x0000000000000200ul;
+		write_cr0(*cr0_ptr);
+	}
+/*	if (vsmtio_mwait_loops && (*ptr == 0)) {
+		end = myrdtsc();
+		printk(KERN_INFO "gotob-CPU%d: active-waiting for %ld cycles, *ptr is %ld.\n",
+				smp_processor_id(), (end - begin), *ptr);
+	}*/
+/*end*/
 
 	/*
 	 * Since we fell out of the loop above, we know TIF_NEED_RESCHED must

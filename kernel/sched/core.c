@@ -36,6 +36,31 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_overutilized_tp);
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
+/*wwj*/
+int vsmtio_enable_rr = 0;
+module_param(vsmtio_enable_rr, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_enable_rr);
+int vsmtio_mwait_loops = 0;
+module_param(vsmtio_mwait_loops, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_mwait_loops);
+int vsmtio_enable_rr_nop = 0;
+module_param(vsmtio_enable_rr_nop, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_enable_rr_nop);
+int vsmtio_nop_loops = 0;
+module_param(vsmtio_nop_loops, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_nop_loops);
+DEFINE_PER_CPU(unsigned long, mwait_wakeup_flag);
+EXPORT_PER_CPU_SYMBOL(mwait_wakeup_flag);
+DEFINE_PER_CPU(unsigned long, mwait_timer_flag);
+EXPORT_PER_CPU_SYMBOL(mwait_timer_flag);
+DEFINE_PER_CPU(unsigned long, mwait_begin_cycles);
+EXPORT_PER_CPU_SYMBOL(mwait_begin_cycles);
+DEFINE_PER_CPU(unsigned long, mwait_success_counter);
+EXPORT_PER_CPU_SYMBOL(mwait_success_counter);
+DEFINE_PER_CPU(unsigned long, mwait_cr0);
+EXPORT_PER_CPU_SYMBOL(mwait_cr0);
+/*end*/
+
 #if defined(CONFIG_SCHED_DEBUG) && defined(CONFIG_JUMP_LABEL)
 /*
  * Debugging: various feature bits
@@ -5284,6 +5309,9 @@ out_put_task:
 	put_task_struct(p);
 	return retval;
 }
+/*wwj*/
+EXPORT_SYMBOL(sched_setaffinity);
+/*end*/
 
 static int get_user_cpu_mask(unsigned long __user *user_mask_ptr, unsigned len,
 			     struct cpumask *new_mask)
@@ -5346,6 +5374,9 @@ out_unlock:
 
 	return retval;
 }
+/*wwj*/
+EXPORT_SYMBOL(sched_getaffinity);
+/*end*/
 
 /**
  * sys_sched_getaffinity - get the CPU affinity of a process
