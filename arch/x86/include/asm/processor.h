@@ -590,6 +590,9 @@ static inline void cpuid(unsigned int op,
 			 unsigned int *eax, unsigned int *ebx,
 			 unsigned int *ecx, unsigned int *edx)
 {
+	if (op == (unsigned int) 5) {
+	  printk("wwj: this ops is for CPUID_MWAIT_LEAF --->\n");
+	}
 	*eax = op;
 	*ecx = 0;
 	__cpuid(eax, ebx, ecx, edx);

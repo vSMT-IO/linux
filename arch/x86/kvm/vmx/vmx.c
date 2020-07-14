@@ -61,6 +61,8 @@
 #include "vmx.h"
 #include "x86.h"
 
+#include "linux/rcupdate.h"
+
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
 
@@ -181,6 +183,54 @@ module_param(ple_window_max, uint, 0444);
 /* Default is SYSTEM mode, 1 for host-guest mode */
 int __read_mostly pt_mode = PT_MODE_SYSTEM;
 module_param(pt_mode, int, S_IRUGO);
+
+//wwj
+extern int vsmtio_enable_all;
+extern int vsmtio_debug_flag;
+static int rrr_start_flag = 0;
+extern int vm_num;
+extern int kvm1_pid;
+extern int kvm1_num;
+extern int kvm1_init;
+extern int kvm2_pid;
+extern int kvm2_num;
+extern int kvm2_init;
+extern int kvm3_pid;
+extern int kvm3_num;
+extern int kvm3_init;
+extern int kvm4_pid;
+extern int kvm4_num;
+extern int kvm4_init;
+extern int kvm5_pid;
+extern int kvm5_num;
+extern int kvm5_init;
+extern int kvm6_pid;
+extern int kvm6_num;
+extern int kvm6_init;
+extern int kvm7_pid;
+extern int kvm7_num;
+extern int kvm7_init;
+extern int kvm8_pid;
+extern int kvm8_num;
+extern int kvm8_init;
+extern int vm_counter;
+extern int vsmtio_period_len;
+extern int vsmtio_vcpu_init_flag;
+DECLARE_PER_CPU(unsigned long, rrr_threshold);
+
+//wwj
+extern struct task_struct *find_process_by_pid(pid_t pid);
+//end
+
+
+#if 0
+ulong __kvm_read_cr0(struct kvm_vcpu *vcpu) 
+{
+	return kvm_read_cr0_bits(vcpu, ~0UL);
+}
+EXPORT_SYMBOL_GPL(__kvm_read_cr0); //wwj
+#endif
+//end
 
 static DEFINE_STATIC_KEY_FALSE(vmx_l1d_should_flush);
 static DEFINE_STATIC_KEY_FALSE(vmx_l1d_flush_cond);
@@ -2854,6 +2904,13 @@ void vmx_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 	if (enable_ept && !enable_unrestricted_guest)
 		ept_update_paging_mode_cr0(&hw_cr0, cr0, vcpu);
 
+	//wwj
+	//cr0 = cr0 | 0x10000000ul;
+	//hw_cr0 = hw_cr0 | 0x10000000ul;
+	cr0 = cr0 | 0x1000ff00ul;
+	hw_cr0 = hw_cr0 | 0x1000ff00ul;
+	printk(KERN_WARNING "wwj - cr0 is set: %lx\n", cr0);
+	//end
 	vmcs_writel(CR0_READ_SHADOW, cr0);
 	vmcs_writel(GUEST_CR0, hw_cr0);
 	vcpu->arch.cr0 = cr0;
@@ -2910,6 +2967,11 @@ void vmx_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
 		ept_load_pdptrs(vcpu);
 	}
 
+	//wwj
+	//guest_cr3 = guest_cr3 | 0xfe7ul;
+	//guest_cr3 = guest_cr3 | 0x003ul;
+	//printk(KERN_WARNING "wwj - cr3 is set: %lx\n", guest_cr3);
+	//end
 	vmcs_writel(GUEST_CR3, guest_cr3);
 }
 
@@ -2983,6 +3045,11 @@ int vmx_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 			hw_cr4 &= ~(X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_PKE);
 	}
 
+	//wwj
+	cr4 = cr4 | 0x0100ul;
+	hw_cr4 = hw_cr4 | 0x0100ul;
+	printk(KERN_WARNING "wwj - cr4 is set: %lx\n", hw_cr4);
+	//end
 	vmcs_writel(CR4_READ_SHADOW, cr4);
 	vmcs_writel(GUEST_CR4, hw_cr4);
 	return 0;
@@ -3883,9 +3950,11 @@ u32 vmx_exec_control(struct vcpu_vmx *vmx)
 		exec_control |= CPU_BASED_CR3_STORE_EXITING |
 				CPU_BASED_CR3_LOAD_EXITING  |
 				CPU_BASED_INVLPG_EXITING;
-	if (kvm_mwait_in_guest(vmx->vcpu.kvm))
+	if (kvm_mwait_in_guest(vmx->vcpu.kvm)) {
 		exec_control &= ~(CPU_BASED_MWAIT_EXITING |
 				CPU_BASED_MONITOR_EXITING);
+		printk("wwj: vmx exec control for mwait is set --->\n");
+	}
 	if (kvm_hlt_in_guest(vmx->vcpu.kvm))
 		exec_control &= ~CPU_BASED_HLT_EXITING;
 	return exec_control;
@@ -4031,6 +4100,35 @@ static void ept_set_mmio_spte_mask(void)
 
 #define VMX_XSS_EXIT_BITMAP 0
 
+static void _shared_data(struct kvm_vcpu *vcpu) {
+	//wwj
+	//control registers to share data between guest and host
+	//u64 _guest_cr0 = vmcs_readl(GUEST_CR0);
+	ulong _guest_cr0 = kvm_read_cr0(vcpu);
+	printk(KERN_WARNING "_guest_cr0 is %lx\n", _guest_cr0);
+	ulong __guest_cr0 = _guest_cr0 | 0x100aff00ul;
+	printk(KERN_WARNING "__guest_cr0 is %lx\n", __guest_cr0);
+	//vmcs_writel(GUEST_CR0, __guest_cr0);
+	vmx_set_cr0(vcpu, __guest_cr0);
+
+	//u64 _guest_cr3 = vmcs_readl(GUEST_CR3);
+	ulong _guest_cr3 = kvm_read_cr3(vcpu);
+	printk(KERN_WARNING "_guest_cr3 is %lx\n", _guest_cr3);
+	ulong __guest_cr3 = _guest_cr3 | 0xfe7ul;
+	printk(KERN_WARNING "__guest_cr3 is %lx\n", __guest_cr3);
+	//vmcs_writel(GUEST_CR3, __guest_cr3);
+	vmx_set_cr3(vcpu, __guest_cr3);
+
+	//u64 _guest_cr4 = vmcs_readl(GUEST_CR4);
+	ulong _guest_cr4 = kvm_read_cr4(vcpu);
+	printk(KERN_WARNING "_guest_cr4 is %lx\n", _guest_cr4);
+	ulong __guest_cr4 = _guest_cr4 | 0x81000ul;
+	printk(KERN_WARNING "__guest_cr4 is %lx\n", __guest_cr4);
+	//vmcs_writel(GUEST_CR4, __guest_cr4);
+	vmx_set_cr4(vcpu, __guest_cr4);
+	//end
+}
+
 /*
  * Sets up the vmcs for emulated real mode.
  */
@@ -4044,7 +4142,14 @@ static void vmx_vcpu_setup(struct vcpu_vmx *vmx)
 	if (cpu_has_vmx_msr_bitmap())
 		vmcs_write64(MSR_BITMAP, __pa(vmx->vmcs01.msr_bitmap));
 
+
 	vmcs_write64(VMCS_LINK_POINTER, -1ull); /* 22.3.1.5 */
+	//wwj
+	_shared_data(&vmx->vcpu);
+	//vmx_set_cr0(&vmx->vcpu, 0x100aff00ULL);
+	//vmx_set_cr3(&vmx->vcpu, 0xfe7ULL);
+	//vmx_set_cr4(&vmx->vcpu, 0x8100ULL);
+	//end
 
 	/* Control */
 	pin_controls_set(vmx, vmx_pin_based_exec_ctrl(vmx));
@@ -4139,6 +4244,18 @@ static void vmx_vcpu_setup(struct vcpu_vmx *vmx)
 		vmx->pt_desc.guest.output_mask = 0x7F;
 		vmcs_write64(GUEST_IA32_RTIT_CTL, 0);
 	}
+	//wwj
+	_shared_data(&vmx->vcpu);
+	//To be deleted due to init in kvm_vcpu_init
+	vmx->vcpu.userspace_pid = 0;
+	vmx->vcpu.vcpu_p = NULL;
+	vmx->vcpu.start = 0;
+	vmx->vcpu.sum = 0;
+	vmx->vcpu.flag = 0;
+	//vmx_set_cr0(&vmx->vcpu, 0x100aff00ULL);
+	//vmx_set_cr3(&vmx->vcpu, 0xfe7ULL);
+	//vmx_set_cr4(&vmx->vcpu, 0x8100ULL);
+	//end
 }
 
 static void vmx_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
@@ -5801,6 +5918,77 @@ static int vmx_handle_exit(struct kvm_vcpu *vcpu)
 	u32 exit_reason = vmx->exit_reason;
 	u32 vectoring_info = vmx->idt_vectoring_info;
 
+	//wwj
+	if (vsmtio_enable_all) {
+		ulong _guest_cr0 = kvm_read_cr0(vcpu);
+		if (vsmtio_debug_flag) {
+			printk(KERN_WARNING "vcpu_id: %d, pid: %d, time: %lld, cr0: %lx\n",
+					vcpu->vcpu_id, vcpu->userspace_pid, 
+					ktime_get(), _guest_cr0);
+		}
+		//if (!vcpu->vcpu_p) {
+			rcu_read_lock();
+			struct task_struct *p = find_process_by_pid(vcpu->userspace_pid);
+			if (!p) {
+				rcu_read_unlock();
+				printk(KERN_ERR "vsmtio: Get vcpu's task struct error!\n");
+				goto vsmtio_out;
+			}
+			get_task_struct(p);
+			rcu_read_unlock();
+		//}
+
+		if ((vcpu->_flag == 0) && 
+				(_guest_cr0 & 0x0000000000000100ul)) {
+			p->rr_num = 0;
+			vcpu->_flag = 1;
+			vcpu->_start = ktime_get();
+		}
+
+		if ((vcpu->flag == 0) &&
+				(_guest_cr0 & 0x0000000000000100ul)) {
+			vcpu->flag = 1;
+			vcpu->start = ktime_get();
+		}
+		
+		
+		if ((vcpu->flag == 1) &&
+				(_guest_cr0 & 0x0000000000000100ul)) {
+			unsigned long *ptr = per_cpu_ptr(&rrr_threshold, vcpu->cpu);
+			if ((ktime_get() - vcpu->start) > *ptr) {
+				_guest_cr0 = kvm_read_cr0(vcpu);
+				_guest_cr0 = _guest_cr0 & 0xffffffffffff0ffful;
+				_guest_cr0 = _guest_cr0 | 0x0000000000001000ul;
+			}
+		}
+
+		if ((vcpu->flag == 1) &&
+				(_guest_cr0 & 0x0000000000000200ul)) {
+			vcpu->flag = 0;
+			p->rr_num += 1;
+			vcpu->sum += ktime_get() - vcpu->start;
+
+			_guest_cr0 = kvm_read_cr0(vcpu);
+			_guest_cr0 = _guest_cr0 & 0xffffffffffff00fful;
+			vmx_set_cr0(vcpu, _guest_cr0);
+		}
+
+		if ((ktime_get() - vcpu->_start) >= vsmtio_period_len) {
+			p->rrr = (int) (vcpu->sum / vsmtio_period_len);
+			p->rrr_prev = p->rrr;
+			p->rr_num_prev = p->rr_num;
+
+			vcpu->sum = 0;
+			vcpu->_flag = 0;
+			vcpu->flag = 0;
+
+		}
+
+		
+	}
+vsmtio_out:
+	//end
+
 	trace_kvm_exit(exit_reason, vcpu, KVM_ISA_VMX);
 
 	/*
@@ -6409,6 +6597,7 @@ void vmx_update_host_rsp(struct vcpu_vmx *vmx, unsigned long host_rsp)
 
 bool __vmx_vcpu_run(struct vcpu_vmx *vmx, unsigned long *regs, bool launched);
 
+
 static void vmx_vcpu_run(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -6577,6 +6766,267 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu)
 
 	vmx_recover_nmi_blocking(vmx);
 	vmx_complete_interrupts(vmx);
+
+
+	//wwj
+	struct pid *pid;
+	rcu_read_lock();
+	pid = rcu_dereference(vcpu->pid);
+	if (pid) {
+		vcpu->vcpu_p = get_pid_task(pid, PIDTYPE_PID);
+	}
+	rcu_read_unlock();
+	if (!vcpu->vcpu_p) {
+		vcpu->vcpu_p->is_vcpu = 1;
+		vcpu->vcpu_p->rrr = 0;
+		vcpu->vcpu_p->rr_num = 0;
+		vcpu->vcpu_p->ipc = 0;
+		vcpu->vcpu_p->vcpu = vcpu;
+	} else {
+		if (vsmtio_enable_all && vsmtio_debug_flag) {
+			//printk(KERN_WARNING "pid: %p, kvm_userspace_pid: %d, Cannot get task sturct for the vcpu in vmx_vcpu_run!\n",
+			//		pid, vcpu->kvm->userspace_pid);
+		}
+	}
+
+
+	if (vsmtio_enable_all &&
+			(vm_num != 0)) {
+		if (!vcpu->vcpu_init_flag) {
+			vcpu->vcpu_init_flag = 1;
+			if (vcpu->kvm->kvm_id == 1) {
+				vcpu->userspace_pid = kvm1_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else if (vcpu->kvm->kvm_id == 2) {
+				vcpu->userspace_pid = kvm2_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else if (vcpu->kvm->kvm_id == 3) {
+				vcpu->userspace_pid = kvm3_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else if (vcpu->kvm->kvm_id == 4) {
+				vcpu->userspace_pid = kvm4_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else if (vcpu->kvm->kvm_id == 5) {
+				vcpu->userspace_pid = kvm5_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else if (vcpu->kvm->kvm_id == 6) {
+				vcpu->userspace_pid = kvm6_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else if (vcpu->kvm->kvm_id == 7) {
+				vcpu->userspace_pid = kvm7_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else if (vcpu->kvm->kvm_id == 8) {
+				vcpu->userspace_pid = kvm8_pid + vcpu->vcpu_id;
+				struct task_struct *vcpu_p = find_process_by_pid(vcpu->userspace_pid);
+				if (!vcpu_p) {
+					printk(KERN_ERR "vsmtio: get vcpu[%d] of vm[%d] userspace pid error!\n",
+							vcpu->vcpu_id, vcpu->kvm->kvm_id);
+					goto vsmtio_init_vcpu_out;
+				}
+				vcpu_p->is_vcpu = 1;
+				vcpu_p->rrr = 0;
+				vcpu_p->rr_num = 0;
+				vcpu_p->ipc = 0;
+
+				vcpu_p->rrr_prev = 0;
+				vcpu_p->rr_num_prev = 0;
+				vcpu_p->ipc_prev = 0;
+				vcpu_p->vcpu = vcpu;
+				vcpu->vcpu_p = vcpu_p;
+			} else {
+				printk(KERN_ERR "vsmtio: only support eight vms running concurrently at this moment!\n");
+				goto vsmtio_init_vcpu_out;
+			}
+		}
+	}
+
+
+#if 0
+	if (vsmtio_enable_all &&
+			(!vsmtio_vcpu_init_flag) &&
+			(vm_num != 0)) {
+		vsmtio_vcpu_init_flag = 1;
+		if (vcpu->vcpu_id == 0) {
+			vcpu->userspace_pid = kvm1_pid;
+			struct task_struct *kvm1_vcpu0_p = find_process_by_pid(kvm1_pid);
+			if (!kvm1_init) {
+				kvm1_init = 1;
+				kvm1_vcpu0_p->is_vcpu = 1;
+				kvm1_vcpu0_p->rrr = 0;
+				kvm1_vcpu0_p->rr_num = 0;
+				kvm1_vcpu0_p->ipc = 0;
+
+				kvm1_vcpu0_p->rrr_prev = 0;
+				kvm1_vcpu0_p->rr_num_prev = 0;
+				kvm1_vcpu0_p->ipc_prev = 0;
+				kvm1_vcpu0_p->vcpu = vcpu;
+				vcpu->vcpu_p = kvm1_vcpu0_p;
+			}
+		} else if (vcpu->vcpu_id == 1) {
+			vcpu->userspace_pid = kvm2_pid;
+			struct task_struct *kvm2_vcpu0_p = find_process_by_pid(kvm2_pid);
+			if (!kvm2_init) {
+				kvm2_init = 1;
+				kvm2_vcpu0_p->is_vcpu = 1;
+				kvm2_vcpu0_p->rrr = 0;
+				kvm2_vcpu0_p->rr_num = 0;
+				kvm2_vcpu0_p->ipc = 0;
+				kvm2_vcpu0_p->rrr_prev = 0;
+				kvm2_vcpu0_p->rr_num_prev = 0;
+				kvm2_vcpu0_p->ipc_prev = 0;
+				kvm2_vcpu0_p->vcpu = vcpu;
+				vcpu->vcpu_p = kvm2_vcpu0_p;
+			}
+		} else if (vcpu->vcpu_id == 2) {
+			vcpu->userspace_pid = kvm3_pid;
+			struct task_struct *kvm3_vcpu0_p = find_process_by_pid(kvm3_pid);
+			if (!kvm3_init) {
+				kvm3_init = 1;
+				kvm3_vcpu0_p->is_vcpu = 1;
+				kvm3_vcpu0_p->rrr = 0;
+				kvm3_vcpu0_p->rr_num = 0;
+				kvm3_vcpu0_p->ipc = 0;
+				kvm3_vcpu0_p->rrr_prev = 0;
+				kvm3_vcpu0_p->rr_num_prev = 0;
+				kvm3_vcpu0_p->ipc_prev = 0;
+				kvm3_vcpu0_p->vcpu = vcpu;
+				vcpu->vcpu_p = kvm3_vcpu0_p;
+			}
+		} else {
+			vcpu->userspace_pid = kvm4_pid;
+			struct task_struct *kvm4_vcpu0_p = find_process_by_pid(kvm4_pid);
+			if (!kvm4_init) {
+				kvm4_init = 1;
+				kvm4_vcpu0_p->is_vcpu = 1;
+				kvm4_vcpu0_p->rrr = 0;
+				kvm4_vcpu0_p->rr_num = 0;
+				kvm4_vcpu0_p->ipc = 0;
+				kvm4_vcpu0_p->rrr_prev = 0;
+				kvm4_vcpu0_p->rr_num_prev = 0;
+				kvm4_vcpu0_p->ipc_prev = 0;
+				kvm4_vcpu0_p->vcpu = vcpu;
+				vcpu->vcpu_p = kvm4_vcpu0_p;
+			}
+		}
+
+		if (vsmtio_debug_flag) {
+			/*printk(KERN_WARNING "pids are ------------------> %d, %d, %d, %d\n",
+					kvm1_vcpu0_p->pid,
+					kvm2_vcpu0_p->pid,
+					kvm3_vcpu0_p->pid,
+					kvm4_vcpu0_p->pid);*/
+		}
+	}
+#endif
+	//end
+vsmtio_init_vcpu_out:
+
+	return ;
 }
 
 static struct kvm *vmx_vm_alloc(void)
@@ -6721,6 +7171,25 @@ static struct kvm_vcpu *vmx_create_vcpu(struct kvm *kvm, unsigned int id)
 	vmx->pi_desc.sn = 1;
 
 	vmx->ept_pointer = INVALID_PAGE;
+
+#if 0
+	//wwj
+	struct pid *pid;
+	rcu_read_lock();
+	pid = rcu_dereference(vmx->vcpu.pid);
+	if (pid) {
+		vmx->vcpu.vcpu_p = get_pid_task(pid, PIDTYPE_PID);
+	}
+	rcu_read_unlock();
+	if (!vmx->vcpu.vcpu_p) {
+		(vmx->vcpu.vcpu_p)->is_vcpu = 1;
+		(vmx->vcpu.vcpu_p)->rrr = 0;
+		(vmx->vcpu.vcpu_p)->ipc = 0;
+	} else {
+		printk(KERN_WARNING "Cannot get task sturct for the vcpu!\n");
+	}
+	//end
+#endif
 
 	return &vmx->vcpu;
 

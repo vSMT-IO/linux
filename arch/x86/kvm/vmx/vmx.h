@@ -11,6 +11,17 @@
 #include "ops.h"
 #include "vmcs.h"
 
+//wwj
+//extern struct task_struct *find_process_by_pid(pid_t pid);
+//#include <linux/sched.h>
+
+//static struct task_struct *find_process_by_pid(pid_t pid)
+//{
+//	return pid ? find_task_by_vpid(pid) : current;
+//}
+
+//end
+
 extern const u32 vmx_msr_index[];
 extern u64 host_efer;
 

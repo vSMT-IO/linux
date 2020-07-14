@@ -7,6 +7,13 @@
 #include <linux/memblock.h>
 #include <linux/debug_locks.h>
 
+/*wwj*/
+#include <linux/module.h>
+int vsmtio_enable_optimize_locking = 0;
+module_param(vsmtio_enable_optimize_locking, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_enable_optimize_locking);
+/*end*/
+
 /*
  * Implement paravirt qspinlocks; the general idea is to halt the vcpus instead
  * of spinning them.
@@ -269,7 +276,13 @@ pv_wait_early(struct pv_node *prev, int loop)
 	if ((loop & PV_PREV_CHECK_MASK) != 0)
 		return false;
 
-	return READ_ONCE(prev->state) != vcpu_running || vcpu_is_preempted(prev->cpu);
+	/*return READ_ONCE(prev->state) != vcpu_running || vcpu_is_preempted(prev->cpu);*/
+	/*wwj*/
+	if (vsmtio_enable_optimize_locking)
+	  return READ_ONCE(prev->state) != vcpu_running;
+	else
+	  return READ_ONCE(prev->state) != vcpu_running || vcpu_is_preempted(prev->cpu);
+	/*end*/
 }
 
 /*

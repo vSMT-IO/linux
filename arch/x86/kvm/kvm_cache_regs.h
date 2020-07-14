@@ -99,6 +99,16 @@ static inline ulong kvm_read_cr0(struct kvm_vcpu *vcpu)
 	return kvm_read_cr0_bits(vcpu, ~0UL);
 }
 
+#if 0
+
+ulong __kvm_read_cr0(struct kvm_vcpu *vcpu)
+{
+	return kvm_read_cr0_bits(vcpu, ~0UL);
+}
+EXPORT_SYMBOL_GPL(__kvm_read_cr0); //wwj
+
+#endif
+
 static inline ulong kvm_read_cr4_bits(struct kvm_vcpu *vcpu, ulong mask)
 {
 	ulong tmask = mask & KVM_POSSIBLE_CR4_GUEST_BITS;

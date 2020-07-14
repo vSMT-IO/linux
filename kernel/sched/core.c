@@ -23,6 +23,12 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
+/*wwj*/
+//#include <linux/kvm_host.h> //wwj
+#include "core.h"
+#include <linux/kvm_host.h>
+#include <linux/list_sort.h>
+
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
  * associated with them) to allow external modules to probe them.
@@ -35,6 +41,173 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(pelt_se_tp);
 EXPORT_TRACEPOINT_SYMBOL_GPL(sched_overutilized_tp);
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
+
+
+int vsmtio_init_flag = 0;
+int monitor_tmp = 0;
+module_param(monitor_tmp, int, 0664);
+EXPORT_SYMBOL_GPL(monitor_tmp);
+int vsmtio_vcpu_init_flag = 0;
+module_param(vsmtio_vcpu_init_flag, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_vcpu_init_flag);
+int vsmtio_debug_flag = 0;
+module_param(vsmtio_debug_flag, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_debug_flag);
+int vsmtio_period_len = 100;
+module_param(vsmtio_period_len, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_period_len);
+struct hrtimer vsmtio_hr_timer;
+ktime_t vsmtio_ktime_interval;
+s64 vsmtio_starttime_ns;
+int vsmtio_enable_profile = 0;
+module_param(vsmtio_enable_profile, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_enable_profile);
+int vsmtio_enable_all = 0;
+module_param(vsmtio_enable_all, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_enable_all);
+int vm_counter = 1;
+EXPORT_SYMBOL_GPL(vm_counter);
+int vm_num = 1;
+module_param(vm_num, int, 0664);
+EXPORT_SYMBOL_GPL(vm_num);
+int kvm1_pid = 0;
+module_param(kvm1_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm1_pid);
+int kvm2_pid = 0;
+module_param(kvm2_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm2_pid);
+int kvm3_pid = 0;
+module_param(kvm3_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm3_pid);
+int kvm4_pid = 0;
+module_param(kvm4_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm4_pid);
+int kvm1_num = 48;
+module_param(kvm1_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm1_num);
+int kvm2_num = 48;
+module_param(kvm2_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm2_num);
+int kvm3_num = 48;
+module_param(kvm3_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm3_num);
+int kvm4_num = 48;
+module_param(kvm4_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm4_num);
+int kvm5_pid = 0;
+module_param(kvm5_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm5_pid);
+int kvm5_num = 48;
+module_param(kvm5_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm5_num);
+int kvm6_pid = 0;
+module_param(kvm6_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm6_pid);
+int kvm6_num = 48;
+module_param(kvm6_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm6_num);
+int kvm7_pid = 0;
+module_param(kvm7_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm7_pid);
+int kvm7_num = 48;
+module_param(kvm7_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm7_num);
+int kvm8_pid = 0;
+module_param(kvm8_pid, int, 0664);
+EXPORT_SYMBOL_GPL(kvm8_pid);
+int kvm8_num = 48;
+module_param(kvm8_num, int, 0664);
+EXPORT_SYMBOL_GPL(kvm8_num);
+int kvm1_init = 0;
+int kvm2_init = 0;
+int kvm3_init = 0;
+int kvm4_init = 0;
+int kvm5_init = 0;
+int kvm6_init = 0;
+int kvm7_init = 0;
+int kvm8_init = 0;
+EXPORT_SYMBOL_GPL(kvm1_init);
+EXPORT_SYMBOL_GPL(kvm2_init);
+EXPORT_SYMBOL_GPL(kvm3_init);
+EXPORT_SYMBOL_GPL(kvm4_init);
+EXPORT_SYMBOL_GPL(kvm5_init);
+EXPORT_SYMBOL_GPL(kvm6_init);
+EXPORT_SYMBOL_GPL(kvm7_init);
+EXPORT_SYMBOL_GPL(kvm8_init);
+int vsmtio_hrtimer_iter = 0;
+module_param(vsmtio_hrtimer_iter, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_hrtimer_iter);
+DEFINE_PER_CPU(unsigned long, rrr_threshold_log);
+EXPORT_PER_CPU_SYMBOL(rrr_threshold_log);
+DEFINE_PER_CPU(unsigned long, rrr_threshold);
+EXPORT_PER_CPU_SYMBOL(rrr_threshold);
+DEFINE_PER_CPU(unsigned long, rrr_scale);
+EXPORT_PER_CPU_SYMBOL(rrr_scale);
+DEFINE_PER_CPU(unsigned long, rass_timer);
+EXPORT_PER_CPU_SYMBOL(rass_timer);
+DEFINE_PER_CPU(unsigned long, ltcr_timer);
+EXPORT_PER_CPU_SYMBOL(ltcr_timer);
+DEFINE_PER_CPU(unsigned long, wa_timer);
+EXPORT_PER_CPU_SYMBOL(wa_timer);
+int vsmtio_wa_threshold = 3;
+module_param(vsmtio_wa_threshold, int, 0664);
+EXPORT_SYMBOL_GPL(vsmtio_wa_threshold);
+
+
+DEFINE_PER_CPU(unsigned long, monitor_flag);
+EXPORT_PER_CPU_SYMBOL(monitor_flag);
+int monitor_threshold = 3;
+module_param(monitor_threshold, int, 0664);
+EXPORT_SYMBOL_GPL(monitor_threshold);
+
+DEFINE_PER_CPU(unsigned long, ht_inst);
+EXPORT_PER_CPU_SYMBOL(ht_inst);
+DEFINE_PER_CPU(unsigned long, ht_cycles);
+EXPORT_PER_CPU_SYMBOL(ht_cycles);
+DEFINE_PER_CPU(unsigned long, ht_stall);
+EXPORT_PER_CPU_SYMBOL(ht_stall);
+DEFINE_PER_CPU(unsigned long, ht_miss);
+EXPORT_PER_CPU_SYMBOL(ht_miss);
+
+DEFINE_PER_CPU(unsigned long, ht_counter);
+EXPORT_PER_CPU_SYMBOL(ht_counter);
+
+DEFINE_PER_CPU(unsigned long, ltcr_round_flag);
+EXPORT_PER_CPU_SYMBOL(ltcr_round_flag);
+
+DEFINE_PER_CPU(unsigned long, ltcr_rr_num);
+EXPORT_PER_CPU_SYMBOL(ltcr_rr_num);
+DEFINE_PER_CPU(unsigned long, ltcr_ipc);
+EXPORT_PER_CPU_SYMBOL(ltcr_ipc);
+
+DEFINE_PER_CPU(unsigned long, wa_avg_rrr);
+EXPORT_PER_CPU_SYMBOL(wa_avg_rrr);
+
+DEFINE_PER_CPU(unsigned long, wa_std_rrr);
+EXPORT_PER_CPU_SYMBOL(wa_std_rrr);
+
+DEFINE_PER_CPU(unsigned long, wa_avg_rrr_log);
+EXPORT_PER_CPU_SYMBOL(wa_avg_rrr_log);
+
+DEFINE_PER_CPU(unsigned long, wa_std_rrr_log);
+EXPORT_PER_CPU_SYMBOL(wa_std_rrr_log);
+
+//DEFINE_PER_CPU(unsigned long, ltcr_start);
+//EXPORT_PER_CPU_SYMBOL(ltcr_start);
+
+DEFINE_PER_CPU(unsigned long, wa_start);
+EXPORT_PER_CPU_SYMBOL(wa_start);
+
+
+DEFINE_PER_CPU(unsigned long, ltcr_maintain);
+EXPORT_PER_CPU_SYMBOL(ltcr_maintain);
+DEFINE_PER_CPU(unsigned long, ltcr_start);
+EXPORT_PER_CPU_SYMBOL(ltcr_start);
+#define INTERVAL_BETWEEN_CALLBACKS (1000 * 1000000LL) //100ms (scaled in ns)
+#define NR_ITERATIONS 20
+
+//extern ulong __kvm_read_cr0(struct kvm_vcpu *vcpu);
+//end
 
 #if defined(CONFIG_SCHED_DEBUG) && defined(CONFIG_JUMP_LABEL)
 /*
@@ -2572,6 +2745,17 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.vruntime			= 0;
 	INIT_LIST_HEAD(&p->se.group_node);
 
+	//wwj
+	p->is_vcpu = 0;
+	p->rrr = 0;
+	p->rr_num = 0;
+	p->ipc = 0;
+	p->rrr_prev = 0;
+	p->rr_num_prev = 0;
+	p->ipc_prev = 0;
+	p->vcpu = NULL;
+	//end
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	p->se.cfs_rq			= NULL;
 #endif
@@ -3138,6 +3322,18 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 		put_task_struct(prev);
 	}
 
+	//wwj
+	if (vsmtio_enable_all && (prev->is_moved == 1)) {
+		int cpu = task_cpu(prev);
+		int nr_cpu = num_possible_cpus();
+		if (cpu >= nr_cpu/2) {
+			int pair_cpu = cpu - (nr_cpu/2);
+			move_to_cpu(pair_cpu, prev);
+			prev->prio = prev->prio_log;
+			prev->is_moved = 0;
+		}
+	}
+
 	tick_nohz_task_switch();
 	return rq;
 }
@@ -3388,6 +3584,12 @@ unlock:
 DEFINE_PER_CPU(struct kernel_stat, kstat);
 DEFINE_PER_CPU(struct kernel_cpustat, kernel_cpustat);
 
+//wwj
+DEFINE_PER_CPU(struct list_head, ht_list);
+EXPORT_PER_CPU_SYMBOL(ht_list);
+DEFINE_PER_CPU(struct list_head, core_list);
+EXPORT_PER_CPU_SYMBOL(core_list);
+
 EXPORT_PER_CPU_SYMBOL(kstat);
 EXPORT_PER_CPU_SYMBOL(kernel_cpustat);
 
@@ -3452,6 +3654,465 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 	return ns;
 }
 
+struct list_head __percpu *vsmtio_htlist;
+struct list_head __percpu *vsmtio_corelist;
+
+//wwj
+
+void vsmtio_wm_init(void) {
+	printk(KERN_INFO "This is workload monitor!\n");
+}
+
+void vsmtio_ltcr_init(void) {
+	printk(KERN_INFO "This is long term context retention!\n");
+}
+
+void vsmtio_rass_init(void) {
+	printk(KERN_INFO "This is retention aware symbiotic scheduling!\n");
+}
+
+void vsmtio_wa_init(void) {
+	printk(KERN_INFO "This is workload adjuster!\n");
+}
+
+void _vsmtio_init(void) {
+	vsmtio_wm_init();
+	vsmtio_ltcr_init();
+	vsmtio_rass_init();
+	vsmtio_wa_init();
+}
+
+#define for_each_sched_entity(se) \
+			for (; se; se = se->parent)
+
+
+extern ulong __kvm_read_cr0(struct kvm_vcpu *vcpu);
+
+void vsmtio_wm(int cpu) {
+	if (vsmtio_debug_flag) {
+		//int i;
+		printk(KERN_WARNING "wwj-dbg on cpu[%d]: workload monitor runs on this HT\n", cpu);
+
+		struct rq* rq = cpu_rq(cpu);
+		struct cfs_rq* cfs = &(rq->cfs);
+		struct sched_entity* se = cfs->curr;
+#if 0
+		for_each_sched_entity(se) {
+			struct task_struct *p = container_of(se, struct task_struct, se);
+			printk(KERN_WARNING "cfs on cpu[%d] - pid: %d, is_vcpu: %d, rrr: %d, ipc: %d, vcpu: %p\n",
+					cpu, p->pid, p->is_vcpu,
+					p->rrr, p->ipc, p->vcpu);
+		}
+#endif
+		struct task_struct *curr = rq->curr;
+		struct task_struct *t;
+
+		for_each_process_thread(curr, t) {
+#if 0
+			printk(KERN_WARNING "notcfs on cpu[%d] - pid: %d, is_vcpu: %d, rrr: %d, ipc: %d, vcpu: %p\n",
+					cpu, curr->pid, curr->is_vcpu,
+					curr->rrr, curr->ipc, curr->vcpu);
+#endif
+			if (vsmtio_debug_flag && (task_cpu(t) == cpu)) {
+				printk(KERN_WARNING "cpu[%d] - pid: %d, is_vcpu: %d, rrr: %d, ipc: %d, vcpu: %p\n",
+						cpu, t->pid, t->is_vcpu,
+						t->rrr, t->ipc, t->vcpu);
+			}
+
+			if ((t->is_vcpu == 1) && (task_cpu(t) == cpu)) {
+				//unsigned long guest_cr0 = __kvm_read_cr0(t->vcpu);
+				//printk(KERN_WARNING "guest_cr0 is %lx\n", guest_cr0);
+			}
+		}
+
+
+	}
+}
+
+
+void do_ltcr(int cpu) {
+	unsigned long *ptr_ltcr_ipc = per_cpu_ptr(&ltcr_ipc, cpu);
+	unsigned long *_ptr_ltcr_ipc = per_cpu_ptr(&ltcr_ipc, cpu+24);
+	unsigned long *ptr_ltcr_rr_num = per_cpu_ptr(&ltcr_rr_num, cpu);
+	unsigned long *_ptr_ltcr_rr_num = per_cpu_ptr(&ltcr_rr_num, cpu+24);
+	struct rq* rq = cpu_rq(cpu);
+	struct rq* _rq = cpu_rq(cpu + 24);
+	struct task_struct *curr = rq->curr;
+	struct task_struct *_curr = _rq->curr;
+	struct task_struct *t;
+	struct task_struct *_t;
+
+
+	unsigned long *ptr_ltcr_ipc_tmp = per_cpu_ptr(&ht_inst, cpu);
+	unsigned long *_ptr_ltcr_ipc_tmp = per_cpu_ptr(&ht_inst, cpu+24);
+	unsigned long ltcr_rr_num_tmp = 0ul;
+	unsigned long _ltcr_rr_num_tmp = 0ul;
+
+	for_each_process_thread(curr, t) {
+		if ((t->is_vcpu == 1) && (task_cpu(t) == cpu)) {
+			ltcr_rr_num_tmp += t->rr_num;
+		}
+	}
+
+	for_each_process_thread(_curr, _t) {
+		if ((_t->is_vcpu == 1) && (task_cpu(t) == (cpu+24))) {
+			_ltcr_rr_num_tmp += t->rr_num;
+		}
+	}
+
+	unsigned long *ptr_rrr_threshold = per_cpu_ptr(&rrr_threshold, cpu+24);
+	unsigned long *ptr_rrr_threshold_log = per_cpu_ptr(&rrr_threshold_log, cpu+24);
+	unsigned long *ptr_rrr_scale = per_cpu_ptr(&rrr_scale, cpu+24);
+	unsigned long *ptr_ltcr_maintain = per_cpu_ptr(&ltcr_maintain, cpu+24);
+
+	if (*ptr_ltcr_maintain == 1) {
+		*ptr_ltcr_maintain = 0;
+		*ptr_rrr_threshold_log = *ptr_rrr_threshold;
+		*ptr_rrr_threshold = (*ptr_rrr_threshold * 9) / 10;
+	} else {
+		if ((*ptr_ltcr_ipc_tmp > *ptr_ltcr_ipc) &&
+				(_ltcr_rr_num_tmp > *_ptr_ltcr_rr_num)) {
+			//*ptr_rrr_threshold = *ptr_rrr_threshold + *ptr_rrr_scale;
+			*ptr_rrr_threshold_log = *ptr_rrr_threshold;
+			*ptr_rrr_threshold = (*ptr_rrr_threshold * 11) / 10;
+		} else {
+			//if (*ptr_ltcr_maintain != 0) {
+			//	*ptr_ltcr_maintain = 0;
+			//} else {
+			*ptr_ltcr_maintain = 1;
+			*ptr_rrr_threshold = *ptr_rrr_threshold_log;
+		//}
+		}
+	}
+
+	*ptr_ltcr_ipc = *ptr_ltcr_ipc_tmp;
+	*_ptr_ltcr_ipc = *_ptr_ltcr_ipc_tmp;
+	*ptr_ltcr_rr_num = ltcr_rr_num_tmp;
+	*_ptr_ltcr_rr_num = _ltcr_rr_num_tmp;
+}
+
+void vsmtio_ltcr(int cpu) {
+	if (vsmtio_debug_flag) {
+		printk(KERN_WARNING "wwj-dbg on cpu[%d]: long term context retention runs on this HT\n", cpu);
+	}
+	unsigned long *ptr_ltcr_round_flag = per_cpu_ptr(&ltcr_round_flag, cpu);
+	unsigned long *ptr_ltcr_start = per_cpu_ptr(&ltcr_start, cpu);
+	unsigned long *ptr_ltcr_ipc = per_cpu_ptr(&ltcr_ipc, cpu);
+	unsigned long *_ptr_ltcr_ipc = per_cpu_ptr(&ltcr_ipc, cpu+24);
+	unsigned long *ptr_ltcr_rr_num = per_cpu_ptr(&ltcr_rr_num, cpu);
+	unsigned long *_ptr_ltcr_rr_num = per_cpu_ptr(&ltcr_rr_num, cpu+24);
+	struct rq* rq = cpu_rq(cpu);
+	struct rq* _rq = cpu_rq(cpu + 24);
+	struct task_struct *curr = rq->curr;
+	struct task_struct *_curr = _rq->curr;
+	struct task_struct *t;
+	struct task_struct *_t;
+
+	if (*ptr_ltcr_round_flag == 0) {
+		*ptr_ltcr_round_flag = 1;
+
+		if (*ptr_ltcr_start == 0) {
+			*ptr_ltcr_start = 1;
+			*ptr_ltcr_ipc = 0;
+			*_ptr_ltcr_ipc = 0;
+
+			*ptr_ltcr_rr_num = 0;
+			*_ptr_ltcr_rr_num = 0;
+
+			unsigned long *ptr_ht_inst = per_cpu_ptr(&ht_inst, cpu);
+			unsigned long *_ptr_ht_inst = per_cpu_ptr(&ht_inst, cpu+24);
+			*ptr_ltcr_ipc = *ptr_ht_inst;
+			*_ptr_ltcr_ipc = *_ptr_ht_inst;
+
+			for_each_process_thread(curr, t) {
+				if ((t->is_vcpu == 1) && (task_cpu(t) == cpu)) {
+					*ptr_ltcr_rr_num += t->rr_num;
+				}
+			}
+
+			for_each_process_thread(_curr, _t) {
+				if ((_t->is_vcpu == 1) && (task_cpu(t) == (cpu+24))) {
+					*_ptr_ltcr_rr_num += t->rr_num;
+				}
+			}
+
+			unsigned long *ptr_rrr_threshold = per_cpu_ptr(&rrr_threshold, cpu+24);
+			unsigned long *ptr_rrr_threshold_log = per_cpu_ptr(&rrr_threshold_log, cpu+24);
+			unsigned long *ptr_rrr_scale = per_cpu_ptr(&rrr_scale, cpu+24);
+			//*ptr_rrr_threshold = *ptr_rrr_threshold + *ptr_rrr_scale;
+			*ptr_rrr_threshold_log = *ptr_rrr_threshold;
+			*ptr_rrr_threshold = (*ptr_rrr_threshold * 11) / 10;
+
+		} else {
+
+			do_ltcr(cpu);
+
+		}
+	} else {
+		*ptr_ltcr_round_flag = 0;
+		do_ltcr(cpu);
+	}
+}
+
+static int core_list_cmp(void *priv, struct list_head *a,
+					    struct list_head *b) {
+	struct task_struct *pa = container_of(a, struct task_struct, ht_node);
+	struct task_struct *pb = container_of(b, struct task_struct, ht_node);
+
+	/*negative if a should sort before b*/
+	if (pa->rrr < pb->rrr) {
+		return -1;
+	} else {
+		return 1;
+	}
+}
+
+void do_unbalancer(int cpu) {
+	struct list_head *core_list = per_cpu_ptr(vsmtio_corelist, cpu);
+	if (!core_list) {
+		printk(KERN_ERR "error: core_list does not init yet!\n");
+		return ;
+	}
+
+	unsigned long core_weight = 0;
+	unsigned long ht_weight = 0;
+	struct task_struct *p;
+	list_for_each_entry(p, core_list, ht_node) {
+		core_weight += p->se.load.weight;
+	}
+
+	ht_weight = (unsigned long) (core_weight / 2);
+
+	//cpumask_var_t core_cm = cpumask_of(cpu);
+	//cpumask_var_t ht_cm = cpumask_of(cpu+24);
+
+	list_for_each_entry(p, core_list, ht_node) {
+		if (cpu != task_cpu(p) &&
+				(ht_weight > 0)) {
+			rcu_read_lock();
+			__set_task_cpu(p, cpu);
+			rcu_read_unlock();
+		}
+
+		if (ht_weight <= 0) {
+			if (task_cpu(p) != (cpu + 24)) {
+				rcu_read_lock();
+				__set_task_cpu(p, (cpu+24));
+				rcu_read_unlock();
+			}
+		}
+		ht_weight -= p->se.load.weight;
+	}
+}
+
+void unbalancer(int cpu) {
+	struct list_head *core_list = per_cpu_ptr(vsmtio_corelist, cpu);
+	if (!core_list) {
+		printk(KERN_ERR "error: core_list does not init yet!\n");
+		return ;
+	}
+
+	list_sort(NULL, core_list, core_list_cmp);
+
+	do_unbalancer(cpu);
+}
+
+void vsmtio_rass(int cpu) {
+	if (vsmtio_debug_flag) {
+		printk(KERN_WARNING "wwj-dbg on cpu[%d]: retention aware symbiotic scheduling runs on this HT\n", cpu);
+	}
+	struct rq* rq = cpu_rq(cpu);
+	struct rq* _rq = cpu_rq(cpu + 24);
+	struct cfs_rq* cfs = &(rq->cfs);
+	struct cfs_rq* _cfs = &(_rq->cfs);
+	struct sched_entity* se = cfs->curr;
+	struct sched_entity* _se = _cfs->curr;
+	struct task_struct *curr = rq->curr;
+	struct task_struct *_curr = _rq->curr;
+	struct task_struct *t;
+	struct task_struct *_t;
+	struct list_head *ht_list = per_cpu_ptr(vsmtio_htlist, cpu);
+	if (!ht_list) {
+		printk(KERN_ERR "error: ht_list does not init yet!\n");
+		return ;
+	}
+	struct list_head *core_list = per_cpu_ptr(vsmtio_corelist, cpu);
+	if (!core_list) {
+		printk(KERN_ERR "error: core_list does not init yet!\n");
+		return ;
+	}
+	for_each_process_thread(curr, t) {
+		if ((t->is_vcpu == 1) && (task_cpu(t) == cpu)) {
+			list_add(&t->ht_node, ht_list);
+			list_add(&t->ht_node, core_list);
+		}
+	}
+
+	for_each_process_thread(_curr, _t) {
+		if ((_t->is_vcpu == 1) && (task_cpu(t) == (cpu + 24))) {
+			//list_add(&t->ht_node, ht_list);
+			list_add(&_t->ht_node, core_list);
+		}
+	}
+
+	unbalancer(cpu);
+}
+
+void vsmtio_wa(int cpu) {
+	if (vsmtio_debug_flag) {
+		printk(KERN_WARNING "wwj-dbg on cpu[%d]: workload adjuster runs on this HT\n", cpu);
+	}
+
+	struct rq* rq = cpu_rq(cpu);
+	struct rq* _rq = cpu_rq(cpu + 24);
+	struct task_struct *curr = rq->curr;
+	struct task_struct *_curr = _rq->curr;
+	struct task_struct *t;
+	struct task_struct *_t;
+	unsigned long *ptr_wa_avg_rrr = per_cpu_ptr(&wa_avg_rrr, cpu);
+	unsigned long *ptr_wa_std_rrr = per_cpu_ptr(&wa_std_rrr, cpu);
+	unsigned long *ptr_wa_avg_rrr_log = per_cpu_ptr(&wa_avg_rrr_log, cpu);
+	unsigned long *ptr_wa_std_rrr_log = per_cpu_ptr(&wa_std_rrr_log, cpu);
+
+	unsigned long total_rrr = 0;
+	unsigned long _total_rrr_power = 0;
+	unsigned long vcpu_counter = 0;
+	unsigned long wa_avg_rrr_tmp = 0;
+
+	for_each_process_thread(curr, t) {
+		if ((t->is_vcpu == 1) && (task_cpu(t) == cpu)) {
+			total_rrr += t->rrr;
+			vcpu_counter += 1;
+		}
+	}
+
+	for_each_process_thread(_curr, _t) {
+		if ((_t->is_vcpu == 1) && (task_cpu(t) == (cpu+24))) {
+			total_rrr += _t->rrr;
+			vcpu_counter += 1;
+		}
+	}
+
+	wa_avg_rrr_tmp = total_rrr / vcpu_counter;
+	//*ptr_wa_avg_rrr = wa_avg_rrr_tmp;
+	//*ptr_wa_avg_rrr_log = *ptr_wa_avg_rrr;
+
+	for_each_process_thread(curr, t) {
+		if ((t->is_vcpu == 1) && (task_cpu(t) == cpu)) {
+			_total_rrr_power += int_pow((t->rrr - wa_avg_rrr_tmp), 2);
+		}
+	}
+
+	for_each_process_thread(_curr, _t) {
+		if ((_t->is_vcpu == 1) && (task_cpu(t) == (cpu+24))) {
+			_total_rrr_power += int_pow((_t->rrr - wa_avg_rrr_tmp), 2);
+		}
+	}
+
+	unsigned wa_std_rrr_tmp = int_sqrt((_total_rrr_power / vcpu_counter));
+
+
+	*ptr_wa_avg_rrr = wa_avg_rrr_tmp;
+	*ptr_wa_avg_rrr_log = *ptr_wa_avg_rrr;
+	*ptr_wa_std_rrr = wa_std_rrr_tmp;
+	*ptr_wa_std_rrr_log = *ptr_wa_std_rrr;
+
+	unsigned long *ptr_wa_start = per_cpu_ptr(&wa_start, cpu);
+	if (*ptr_wa_start == 0) {
+		*ptr_wa_start = 1;
+	}
+}
+
+void vsmtio(int cpu) {
+	vsmtio_wm(cpu);
+	vsmtio_rass(cpu);
+	vsmtio_ltcr(cpu);
+	vsmtio_wa(cpu);
+}
+
+void __vsmtio_init(int cpu) {
+	struct list_head *ht_list = per_cpu_ptr(vsmtio_htlist, cpu);
+	INIT_LIST_HEAD(ht_list);
+
+	struct list_head *core_list = per_cpu_ptr(vsmtio_corelist, cpu);
+	INIT_LIST_HEAD(core_list);
+}
+
+static void _setup_round1(const int cpu) {
+	unsigned int low, high;
+	low = 0;
+	high = 0;
+	native_write_msr(FC0,0,0);
+	native_write_msr(FC1,0,0);
+#if 1
+	native_write_msr(FC2,0,0);
+	native_write_msr(PC0,0,0);
+	native_write_msr(PC1,0,0);
+	native_write_msr(PC2,0,0);
+	native_write_msr(PC3,0,0);
+
+	native_write_msr(PCC0,0x004101a2,0);
+	native_write_msr(PCC1,0x004104a3,0);
+	native_write_msr(PCC2,0x0041412e,0);
+	native_write_msr(PCC3,0x00410cd3,0);
+	native_write_msr(FCC,819,0);
+	native_write_msr(GLC,15,7);
+#endif
+	//printk(KERN_WARNING "cpu[%d]: reset msrs\n", cpu);
+
+#if 0
+	unsigned long *ptr_ht_inst = per_cpu_ptr(&ht_inst, cpu);
+	*ptr_ht_inst = 0;
+	unsigned long *ptr_ht_cycles = per_cpu_ptr(&ht_cycles, cpu);
+	*ptr_ht_cycles = 0;
+#endif
+	return ;
+}
+
+static void _collect_round1(const int cpu, struct task_struct *tsk) {
+
+	unsigned long *ptr_counter = per_cpu_ptr(&ht_counter, cpu);
+	unsigned long *ptr_ht_inst = per_cpu_ptr(&ht_inst, cpu);
+	unsigned long *ptr_ht_cycles = per_cpu_ptr(&ht_cycles, cpu);
+	unsigned long *ptr_ht_stall = per_cpu_ptr(&ht_stall, cpu);
+	unsigned long *ptr_ht_miss = per_cpu_ptr(&ht_miss, cpu);
+
+	//if (*ptr_counter >= (unsigned long) (vsmtio_period_len/10)) {
+	//	*ptr_counter = 0;
+	//	*ptr_ht_inst = 0;
+	//	*ptr_ht_cycles = 0;
+	//}
+
+#if 0
+	native_write_msr(PCC0,0x000110d1,0);
+	native_write_msr(PCC1,0x000104d1,0);
+	native_write_msr(PCC2,0x0001412e,0);
+	native_write_msr(PCC3,0x00010cd3,0);
+#endif
+	native_write_msr(PCC0,0x000101a2,0);
+	native_write_msr(PCC1,0x000104a3,0);
+	native_write_msr(PCC2,0x0001412e,0);
+	native_write_msr(PCC3,0x00010cd3,0);
+	*ptr_ht_inst = native_read_msr(FC0);
+	*ptr_ht_cycles = native_read_msr(FC1);
+	*ptr_ht_stall = native_read_msr(PC0);
+	*ptr_ht_miss = native_read_msr(PC1);
+
+	struct rq *rq = cpu_rq(cpu);
+	struct task_struct *curr = rq->curr;
+	curr->sure.inst = *ptr_ht_inst;
+	curr->sure.base = *ptr_ht_cycles;
+	curr->sure.stall = *ptr_ht_stall;
+	curr->sure.miss = *ptr_ht_miss;
+	curr->ca_init = 1;
+
+
+	//*ptr_counter += 1;
+
+	//printk(KERN_WARNING "cpu[%d]'s last 100ms: insts: %lu, base: %lu, stall: %lu, miss: %lu\n",
+	//		cpu, *ptr_ht_inst, *ptr_ht_cycles, *ptr_ht_stall, *ptr_ht_miss);
+}
+
 /*
  * This function gets called by the timer code, with HZ frequency.
  * We call it with interrupts disabled.
@@ -3462,6 +4123,109 @@ void scheduler_tick(void)
 	struct rq *rq = cpu_rq(cpu);
 	struct task_struct *curr = rq->curr;
 	struct rq_flags rf;
+	int i;
+	int nr_cpu = num_possible_cpus();
+
+	if (monitor_tmp) {
+		unsigned long test0 = 1ul;
+		int test1 = -19;
+		unsigned long test2 = 3ul;
+		unsigned long test3 = 5ul;
+		int test4 = 1000;
+		unsigned long test5 = 1698ul;
+		int test6 = 1698;
+		int test7 = -1;
+		unsigned long test8 = 0;
+		unsigned long tmp1 = 0;
+		unsigned long tmp2 = 0;
+		int tmp3 = 0;
+		int tmp4 = 0;
+		int tmp5 = 0;
+
+
+		kernel_fpu_begin();
+		//test8 = 0.001 * test4;
+		tmp1 = test0/test2*1000ul;
+		tmp2 = test3/test2*1000ul;
+		tmp3 = test5/test4*1000ul;
+		tmp4 = test1/test4*1000;
+		tmp5 = test6/test4*1000;
+		kernel_fpu_end();
+
+		//printk(KERN_WARNING "0.001*1000: %lu\n", test8);
+		printk(KERN_WARNING "1ul/3ul*1000ul: %lu\n", tmp1);
+		printk(KERN_WARNING "5ul/3ul*1000ul: %lu\n", tmp2);
+		printk(KERN_WARNING "1698ul/1000*1000ul: %lu\n", tmp3);
+		printk(KERN_WARNING "1698/1000*1000: %lu\n", tmp5);
+		printk(KERN_WARNING "-19/1000*1000: %d\n", tmp4);
+		//printk(KERN_WARNING "-1: %d\n", test7);
+	}
+
+	if (vsmtio_enable_profile) {
+		unsigned long *ptr_mf = per_cpu_ptr(&monitor_flag, cpu);
+		//if ((*ptr_mf > monitor_threshold) &&
+		//		(cpu < (nr_cpu/2))) {
+		if (*ptr_mf > monitor_threshold) {
+			*ptr_mf = 0;
+			_setup_round1(cpu);
+		} else {
+			//*ptr_mf = 0;
+			_collect_round1(cpu, NULL);
+		}
+		*ptr_mf += 1ul;
+	}
+
+	//wwj
+	if (vsmtio_enable_all) {
+		if (!vsmtio_init_flag) {
+			//FIXME:this flag should add a lock for access
+			vsmtio_init_flag = 1;
+			for_each_possible_cpu(i) {
+				unsigned long *ptr_rrr_threshold = per_cpu_ptr(&rrr_threshold, i);
+				unsigned long *ptr_rrr_threshold_log = per_cpu_ptr(&rrr_threshold_log, i);
+				unsigned long *ptr_rrr_scale = per_cpu_ptr(&rrr_scale, i);
+				*ptr_rrr_threshold = 3000000ul;
+				*ptr_rrr_threshold_log = *ptr_rrr_threshold;
+				*ptr_rrr_scale = 300000ul;
+				__vsmtio_init(i);
+			}
+			_vsmtio_init();
+		}
+		//int i;
+		if (vsmtio_debug_flag) {
+			printk(KERN_WARNING "wwj-dbg on cpu[%d]: time is %lld ns\n",
+					cpu, ktime_get());
+		}
+		for_each_possible_cpu(i) {
+			if (i < nr_cpu/2) {
+				unsigned long* ptr_rass_timer = per_cpu_ptr(&rass_timer, i);
+				if (*ptr_rass_timer >= (unsigned long) (vsmtio_period_len/5)) {
+					*ptr_rass_timer = 0;
+					//vsmtio(i);
+					vsmtio_rass(i);
+				} else {
+					*ptr_rass_timer += 1;
+				}
+
+				unsigned long* ptr_ltcr_timer = per_cpu_ptr(&ltcr_timer, i);
+				if (*ptr_ltcr_timer >= (unsigned long) (vsmtio_period_len/2)) {
+					*ptr_ltcr_timer = 0;
+					vsmtio_ltcr(i);
+				} else {
+					*ptr_ltcr_timer += 1;
+				}
+
+				unsigned long* ptr_wa_timer = per_cpu_ptr(&wa_timer, i);
+				if (*ptr_wa_timer >= (unsigned long) (vsmtio_period_len/2)) {
+					*ptr_wa_timer = 0;
+					vsmtio_wa(i);
+				} else {
+					*ptr_wa_timer += 1;
+				}
+			}
+		}
+	}
+	//end
 
 	sched_clock_tick();
 
@@ -3488,6 +4252,7 @@ struct tick_work {
 	int			cpu;
 	struct delayed_work	work;
 };
+//end
 
 static struct tick_work __percpu *tick_work_cpu;
 
@@ -4469,10 +5234,12 @@ struct task_struct *idle_task(int cpu)
  *
  * The task of @pid, if found. %NULL otherwise.
  */
-static struct task_struct *find_process_by_pid(pid_t pid)
+//static struct task_struct *find_process_by_pid(pid_t pid)
+struct task_struct *find_process_by_pid(pid_t pid)
 {
 	return pid ? find_task_by_vpid(pid) : current;
 }
+EXPORT_SYMBOL_GPL(find_process_by_pid); //wwj
 
 /*
  * sched_setparam() passes in -1 for its policy, to let the functions
@@ -5285,6 +6052,8 @@ out_put_task:
 	return retval;
 }
 
+EXPORT_SYMBOL(sched_setaffinity);
+
 static int get_user_cpu_mask(unsigned long __user *user_mask_ptr, unsigned len,
 			     struct cpumask *new_mask)
 {
@@ -5346,6 +6115,7 @@ out_unlock:
 
 	return retval;
 }
+EXPORT_SYMBOL(sched_getaffinity);
 
 /**
  * sys_sched_getaffinity - get the CPU affinity of a process
@@ -6372,6 +7142,51 @@ static struct kmem_cache *task_group_cache __read_mostly;
 DECLARE_PER_CPU(cpumask_var_t, load_balance_mask);
 DECLARE_PER_CPU(cpumask_var_t, select_idle_mask);
 
+//wwj
+enum hrtimer_restart vsmtio_hrtimer_callback(struct hrtimer *timer) {
+	//int n=0;
+	//int min=1000000000, max=0, sum=0;
+	//int latency;
+
+	//s64 now_ns = ktime_to_ns(ktime_get());
+	hrtimer_forward(&vsmtio_hr_timer, vsmtio_hr_timer._softexpires, vsmtio_ktime_interval);
+	//n++;
+	//latency = now_ns - vsmtio_starttime_ns - n * INTERVAL_BETWEEN_CALLBACKS;
+	//sum += latency/1000;
+	//if (min>latency) min = latency;
+	//if (max<latency) max = latency;
+	//printk(KERN_WARNING "vsmtio_hrtimer_module on cpu[%d]: my_hrtimer_callback called after %dus.\n",
+	//		smp_processor_id(), (int) (now_ns - vsmtio_starttime_ns)/1000);
+	if (!vsmtio_hrtimer_iter) {
+		return HRTIMER_RESTART;
+	} else {
+	//	printk(KERN_WARNING "vsmtio_hrtimer_module on cpu[%d]: vsmtio_hrtimer_callback: statistics latences over %d hrtimer callbacks: "
+	//			"min=%dus, max=%dus, mean=%dus\n", smp_processor_id(), n, min/1000, max/1000, sum/n);
+		return HRTIMER_NORESTART;
+	}
+}
+
+void init_vsmtio(int cpu) {
+	vsmtio_ktime_interval = ktime_set(0, INTERVAL_BETWEEN_CALLBACKS);
+	hrtimer_init(&vsmtio_hr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	vsmtio_hr_timer.function = &vsmtio_hrtimer_callback;
+	vsmtio_starttime_ns = ktime_to_ns(ktime_get());
+	hrtimer_start(&vsmtio_hr_timer, vsmtio_ktime_interval, HRTIMER_MODE_REL);
+	printk(KERN_WARNING "vsmtio_hrtimer_module on CPU[%d]: started timer callback function to fire every %lldns (current jiffies=%ld, HZ=%d)\n", cpu, INTERVAL_BETWEEN_CALLBACKS, jiffies, HZ);
+}
+
+
+void __init vsmtio_init(void) {
+	int i;
+	printk(KERN_WARNING "init vsmtio module\n");
+	
+	for_each_possible_cpu(i) {
+		init_vsmtio(i);
+	}
+}
+
+//end
+
 void __init sched_init(void)
 {
 	unsigned long alloc_size = 0, ptr;
@@ -6501,6 +7316,13 @@ void __init sched_init(void)
 #endif
 #endif /* CONFIG_SMP */
 		hrtick_rq_init(rq);
+		//wwj
+		//if (vsmtio_enable_all) {
+			//printk(KERN_INFO "init vsmtio module\n");
+			//if (i == 1)
+			//	init_vsmtio(i);
+		//}
+		//end
 		atomic_set(&rq->nr_iowait, 0);
 	}
 
@@ -6534,6 +7356,18 @@ void __init sched_init(void)
 	init_uclamp();
 
 	scheduler_running = 1;
+	
+	//wwj
+
+#if 0
+	for_each_possible_cpu(i) {
+		if (vsmtio_enable_all) {
+			printk(KERN_INFO "init vsmtio module\n");
+			init_vsmtio(i);
+		}
+	}
+	//end
+#endif
 }
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP

@@ -9,4 +9,6 @@
 extern void sched_init(void);
 extern void sched_init_smp(void);
 
+extern void vsmtio_init(void); //wwj
+
 #endif /* _LINUX_SCHED_INIT_H */

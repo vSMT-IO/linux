@@ -157,6 +157,25 @@ module_param(force_emulation_prefix, bool, S_IRUGO);
 int __read_mostly pi_inject_timer = -1;
 module_param(pi_inject_timer, bint, S_IRUGO | S_IWUSR);
 
+/*added by wwj for vSMT-IO*/
+int __read_mostly vsmtio_enable_mwait_in_guest = 0;
+module_param(vsmtio_enable_mwait_in_guest, int, S_IRUGO | S_IWUSR);
+int __read_mostly vsmtio_enable_hlt_in_guest = 0;
+module_param(vsmtio_enable_hlt_in_guest, int, S_IRUGO | S_IWUSR);
+int __read_mostly vsmtio_enable_pause_in_guest = 0;
+module_param(vsmtio_enable_pause_in_guest, int, S_IRUGO | S_IWUSR);
+int __read_mostly vsmtio_enable_cstate_in_guest = 0;
+module_param(vsmtio_enable_cstate_in_guest, int, S_IRUGO | S_IWUSR);
+
+
+ulong __kvm_read_cr0(struct kvm_vcpu *vcpu)
+{
+	return kvm_read_cr0_bits(vcpu, ~0UL);
+}
+EXPORT_SYMBOL_GPL(__kvm_read_cr0);
+
+/*end for vSMT-IO*/
+
 #define KVM_NR_SHARED_MSRS 16
 
 struct kvm_shared_msrs_global {
@@ -3138,8 +3157,10 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_X86_DISABLE_EXITS:
 		r |=  KVM_X86_DISABLE_EXITS_HLT | KVM_X86_DISABLE_EXITS_PAUSE |
 		      KVM_X86_DISABLE_EXITS_CSTATE;
-		if(kvm_can_mwait_in_guest())
+		if(kvm_can_mwait_in_guest()) {
+			printk("wwj: KVM_X86_DISABLE_EXITS_MWAIT is set --->\n");
 			r |= KVM_X86_DISABLE_EXITS_MWAIT;
+		}
 		break;
 	case KVM_CAP_X86_SMM:
 		/* SMBASE is usually relocated above 1M on modern chipsets,
@@ -4650,17 +4671,30 @@ split_irqchip_unlock:
 		r = -EINVAL;
 		if (cap->args[0] & ~KVM_X86_DISABLE_VALID_EXITS)
 			break;
-
+        /*wwj - changed for vSMTIO*/
+		/*if ((cap->args[0] & KVM_X86_DISABLE_EXITS_MWAIT) &&
+			kvm_can_mwait_in_guest()) {*/
 		if ((cap->args[0] & KVM_X86_DISABLE_EXITS_MWAIT) &&
-			kvm_can_mwait_in_guest())
+			kvm_can_mwait_in_guest() && vsmtio_enable_mwait_in_guest) {
 			kvm->arch.mwait_in_guest = true;
-		if (cap->args[0] & KVM_X86_DISABLE_EXITS_HLT)
+			if (kvm->arch.mwait_in_guest) {
+			  printk("wwj: KVM_X86_DISABLE_EXITS_MWAIT is enabled --->\n");
+			}
+		}
+		/*if (cap->args[0] & KVM_X86_DISABLE_EXITS_HLT)*/
+		if ((cap->args[0] & KVM_X86_DISABLE_EXITS_HLT) &&
+			  vsmtio_enable_hlt_in_guest)
 			kvm->arch.hlt_in_guest = true;
-		if (cap->args[0] & KVM_X86_DISABLE_EXITS_PAUSE)
+		/*if (cap->args[0] & KVM_X86_DISABLE_EXITS_PAUSE)*/
+		if ((cap->args[0] & KVM_X86_DISABLE_EXITS_PAUSE) &&
+			  vsmtio_enable_pause_in_guest)
 			kvm->arch.pause_in_guest = true;
-		if (cap->args[0] & KVM_X86_DISABLE_EXITS_CSTATE)
+		/*if (cap->args[0] & KVM_X86_DISABLE_EXITS_CSTATE)*/
+		if ((cap->args[0] & KVM_X86_DISABLE_EXITS_CSTATE) &&
+			  vsmtio_enable_cstate_in_guest)
 			kvm->arch.cstate_in_guest = true;
 		r = 0;
+		/*end for vSMTIO*/
 		break;
 	case KVM_CAP_MSR_PLATFORM_INFO:
 		kvm->arch.guest_can_read_msr_platform_info = cap->args[0];

@@ -408,6 +408,7 @@ noinline void __ref rest_init(void)
 	struct task_struct *tsk;
 	int pid;
 
+	printk(KERN_WARNING "wwj-dbg: enter rest_init\n");
 	rcu_scheduler_starting();
 	/*
 	 * We need to spawn init first so that it obtains pid 1, however
@@ -431,6 +432,8 @@ noinline void __ref rest_init(void)
 	kthreadd_task = find_task_by_pid_ns(pid, &init_pid_ns);
 	rcu_read_unlock();
 
+	printk(KERN_WARNING "wwj-dbg: in middle place of rest init\n");
+
 	/*
 	 * Enable might_sleep() and smp_processor_id() checks.
 	 * They cannot be enabled earlier because with CONFIG_PREEMPT=y
@@ -442,6 +445,11 @@ noinline void __ref rest_init(void)
 
 	complete(&kthreadd_done);
 
+	//wwj
+	//printk(KERN_WARNING "wwj-dbg: before vsmtio_init\n");
+	//vsmtio_init();
+	//printk(KERN_WARNING "wwj-dbg: after vsmtio_init\n");
+	//end
 	/*
 	 * The boot idle thread must execute schedule()
 	 * at least once to get things moving:
@@ -780,6 +788,10 @@ asmlinkage __visible void __init start_kernel(void)
 	acpi_subsystem_init();
 	arch_post_acpi_subsys_init();
 	sfi_init_late();
+
+	//wwj
+	//vsmtio_init();
+	//end
 
 	/* Do the rest non-__init'ed, we're now alive */
 	arch_call_rest_init();

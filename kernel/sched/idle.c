@@ -13,6 +13,31 @@
 /* Linker adds these: start and end of __cpuidle functions */
 extern char __cpuidle_text_start[], __cpuidle_text_end[];
 
+
+//wwj
+extern int vsmtio_enable_all;
+extern int vsmtio_wa_threshold;
+DECLARE_PER_CPU(unsigned long, monitor_flag);
+DECLARE_PER_CPU(unsigned long, ht_counter);
+DECLARE_PER_CPU(unsigned long, ht_inst);
+DECLARE_PER_CPU(unsigned long, ht_cycles);
+DECLARE_PER_CPU(unsigned long, ht_stall);
+DECLARE_PER_CPU(unsigned long, ht_miss);
+DECLARE_PER_CPU(unsigned long, rass_timer);
+DECLARE_PER_CPU(unsigned long, ltcr_timer);
+DECLARE_PER_CPU(unsigned long, ltcr_round_flag);
+DECLARE_PER_CPU(unsigned long, ltcr_rr_num);
+DECLARE_PER_CPU(unsigned long, ltcr_ipc);
+DECLARE_PER_CPU(unsigned long, ltcr_start);
+DECLARE_PER_CPU(unsigned long, wa_timer);
+DECLARE_PER_CPU(unsigned long, wa_start);
+DECLARE_PER_CPU(unsigned long, wa_avg_rrr);
+DECLARE_PER_CPU(unsigned long, wa_std_rrr);
+DECLARE_PER_CPU(unsigned long, ltcr_maintain);
+DECLARE_PER_CPU(unsigned long, wa_avg_rrr_log);
+DECLARE_PER_CPU(unsigned long, wa_std_rrr_log);
+
+
 /**
  * sched_idle_set_state - Record idle state for the current CPU.
  * @idle_state: State to record.
@@ -217,6 +242,140 @@ exit_idle:
 	rcu_idle_exit();
 }
 
+void do_wa(int cpu)
+{
+	int _cpu = cpu;
+	int nr_cpu = num_possible_cpus();
+	int i;
+	unsigned long *ptr_wa_std_rrr_log = per_cpu_ptr(&wa_std_rrr_log, cpu);
+	unsigned long *ptr_wa_avg_rrr_log = per_cpu_ptr(&wa_avg_rrr_log, cpu);
+	unsigned long small_std_rrr = *ptr_wa_std_rrr_log;
+	unsigned long avg_rrr = *ptr_wa_avg_rrr_log;
+	int target_cpu = cpu;
+	unsigned long target_std_rrr = small_std_rrr;
+	unsigned long target_avg_rrr = avg_rrr;
+
+	for_each_possible_cpu(i) {
+		if (i < nr_cpu/2) {
+			unsigned long *_ptr_wa_std_rrr_log = per_cpu_ptr(&wa_std_rrr_log, i);
+			if (small_std_rrr > *_ptr_wa_std_rrr_log) {
+				small_std_rrr = *_ptr_wa_std_rrr_log;
+				unsigned long *_ptr_wa_avg_rrr_log = per_cpu_ptr(&wa_avg_rrr_log, i);
+				avg_rrr = *_ptr_wa_avg_rrr_log;
+				_cpu = i;
+			}
+		}
+	}
+
+	unsigned long rrr_diff = int_pow((avg_rrr - target_avg_rrr), 2);
+
+	for_each_possible_cpu(i) {
+		if (i < nr_cpu/2) {
+			unsigned long *__ptr_wa_avg_rrr_log = per_cpu_ptr(&wa_avg_rrr_log, i);
+			if (int_pow((avg_rrr - *__ptr_wa_avg_rrr_log), 2) > rrr_diff) {
+				target_cpu = i;
+				rrr_diff = int_pow((avg_rrr - *__ptr_wa_avg_rrr_log), 2);
+				target_avg_rrr = *__ptr_wa_avg_rrr_log;
+			}
+		}
+	}
+
+	if (target_cpu == _cpu) {
+		return ;
+	} else {
+		struct rq* rq = cpu_rq(_cpu);
+		struct rq* _rq = cpu_rq(target_cpu);
+		struct task_struct *curr = rq->curr;
+		struct task_struct *_curr = _rq->curr;
+		struct task_struct *t;
+		struct task_struct *_t;
+		unsigned long vcpu_rrr_diff = int_pow((curr->rrr - avg_rrr), 2);
+		struct task_struct *src_vcpu = rq->curr;
+		struct task_struct *target_vcpu = _rq->curr;
+		unsigned long _vcpu_rrr_diff = int_pow((_curr->rrr - target_avg_rrr), 2);
+
+		for_each_process_thread(curr, t) {
+			if ((t->is_vcpu == 1) && (task_cpu(t) == _cpu)) {
+				if (vcpu_rrr_diff > int_pow((t->rrr - avg_rrr), 2)) {
+					vcpu_rrr_diff = int_pow((t->rrr - avg_rrr), 2);
+					src_vcpu = t;
+				}
+			}
+		}
+
+		for_each_process_thread(_curr, _t) {
+			if ((_t->is_vcpu == 1) && (task_cpu(t) == target_cpu)) {
+				if (_vcpu_rrr_diff > int_pow((_t->rrr - target_avg_rrr), 2)) {
+					_vcpu_rrr_diff = int_pow((t->rrr - target_avg_rrr), 2);
+					target_vcpu = t;
+				}
+			}
+		}
+
+		rcu_read_lock();
+		__set_task_cpu(target_vcpu, _cpu);
+		rcu_read_unlock();
+
+		rcu_read_lock();
+		__set_task_cpu(src_vcpu, target_cpu);
+		rcu_read_unlock();
+
+	}
+
+	return ;
+}
+
+void do_ca(struct task_struct *pa, struct task_struct *pb) {
+
+	unsigned long _base;
+	unsigned long _stall;
+	unsigned long _miss;
+
+	//model trained beforehand
+	_base = 1396 * ((pa->sure.base * 1000) / pa->sure.inst);
+	_stall = 861 * ((pa->sure.stall * 1000) / pa->sure.inst) + 277 * ((pa->sure.stall * 1000) / pa->sure.inst) * ((pb->sure.stall * 1000) / pb->sure.inst);
+	_miss = 1436 * ((pa->sure.miss * 1000) / pa->sure.inst) + 910 * ((pa->sure.miss * 1000) / pa->sure.inst) * ((pb->sure.miss * 1000) / pb->sure.inst);
+
+	pb->ca_slowdown = _base + _stall + _miss;
+}
+
+extern void move_to_cpu(const int cpu, struct task_struct *tsk);
+
+void vsmtio_ca(int cpu)
+{
+	int nr_cpu = num_possible_cpus();
+	int pair_cpu = cpu - nr_cpu/2;
+
+	//pair_cpu to cpu
+	struct rq *cpu_rq = cpu_rq(pair_cpu);
+	struct task_struct *cpu_curr = cpu_rq->curr;
+	struct task_struct *t;
+	struct task_struct *_t;
+	unsigned long slowdown = 0;
+	int init_flag = 0;
+
+	for_each_process_thread(cpu_curr, t) {
+		if ((t->is_vcpu == 1) && (task_cpu(t) == cpu)) {
+			do_ca(cpu_curr, t);
+			if (init_flag == 0) {
+				init_flag = 1;
+				_t = t;
+				slowdown = t->ca_slowdown;
+			} else {
+				if (slowdown > t->ca_slowdown) {
+					_t = t;
+					slowdown = t->ca_slowdown;
+				}
+			}
+		}
+	}
+
+	_t->prio_log = _t->prio;
+	_t->prio = 39;
+	move_to_cpu(pair_cpu, _t);
+	_t->is_moved = 1;
+}
+
 /*
  * Generic idle loop implementation
  *
@@ -225,6 +384,10 @@ exit_idle:
 static void do_idle(void)
 {
 	int cpu = smp_processor_id();
+	//wwj
+	int i;
+	int nr_cpu = num_possible_cpus();
+	int wa_flag = 0;
 	/*
 	 * If the arch has a polling bit, we maintain an invariant:
 	 *
@@ -238,6 +401,33 @@ static void do_idle(void)
 	tick_nohz_idle_enter();
 
 	while (!need_resched()) {
+
+		if (vsmtio_enable_all) {
+			for_each_possible_cpu(i) {
+				if (i < nr_cpu/2) {
+					unsigned long *ptr_wa_start = per_cpu_ptr(&wa_start, i);
+					if (*ptr_wa_start != 1) {
+						goto _vsmtio_out;
+					}
+					unsigned long *ptr_wa_std_rrr_log = per_cpu_ptr(&wa_std_rrr_log, i);
+					if (*ptr_wa_std_rrr_log < vsmtio_wa_threshold) {
+						wa_flag = 1;
+					}
+				}
+
+				if (wa_flag == 0) {
+					goto _vsmtio_out;
+				}
+
+				do_wa(cpu);
+			}
+
+			if (cpu >= nr_cpu/2) {
+				vsmtio_ca(cpu);
+			}
+		}
+_vsmtio_out:
+
 		check_pgt_cache();
 		rmb();
 
@@ -348,6 +538,51 @@ EXPORT_SYMBOL_GPL(play_idle);
 
 void cpu_startup_entry(enum cpuhp_state state)
 {
+
+	//wwj
+		int my_cpu = smp_processor_id();
+		unsigned long *ptr_inst = per_cpu_ptr(&ht_inst, my_cpu);
+		unsigned long *ptr_cycles = per_cpu_ptr(&ht_cycles, my_cpu);
+		unsigned long *ptr_stall = per_cpu_ptr(&ht_stall, my_cpu);
+		unsigned long *ptr_miss = per_cpu_ptr(&ht_miss, my_cpu);
+		unsigned long *ptr_mf = per_cpu_ptr(&monitor_flag, my_cpu);
+		unsigned long *ptr_counter = per_cpu_ptr(&ht_counter, my_cpu);
+		*ptr_inst = 0;
+		*ptr_cycles = 0;
+		*ptr_stall = 0;
+		*ptr_miss = 0;
+		*ptr_counter = 0;
+		*ptr_mf = 0;
+	//if (vsmtio_enable_all) {
+		unsigned long *ptr_rass_timer = per_cpu_ptr(&rass_timer, my_cpu);
+		unsigned long *ptr_ltcr_timer = per_cpu_ptr(&ltcr_timer, my_cpu);
+		unsigned long *ptr_ltcr_round_flag = per_cpu_ptr(&ltcr_round_flag, my_cpu);
+		unsigned long *ptr_ltcr_rr_num = per_cpu_ptr(&ltcr_rr_num, my_cpu);
+		unsigned long *ptr_ltcr_ipc = per_cpu_ptr(&ltcr_ipc, my_cpu);
+		unsigned long *ptr_wa_timer = per_cpu_ptr(&wa_timer, my_cpu);
+		unsigned long *ptr_wa_avg_rrr = per_cpu_ptr(&wa_avg_rrr, my_cpu);
+		unsigned long *ptr_wa_std_rrr = per_cpu_ptr(&wa_std_rrr, my_cpu);
+		unsigned long *ptr_ltcr_start = per_cpu_ptr(&ltcr_start, my_cpu);
+		unsigned long *ptr_wa_start = per_cpu_ptr(&wa_start, my_cpu);
+		unsigned long *ptr_ltcr_maintain = per_cpu_ptr(&ltcr_maintain, my_cpu);
+		unsigned long *ptr_wa_avg_rrr_log = per_cpu_ptr(&wa_avg_rrr_log, my_cpu);
+		unsigned long *ptr_wa_std_rrr_log = per_cpu_ptr(&wa_std_rrr_log, my_cpu);
+
+		*ptr_rass_timer = 0;
+		*ptr_ltcr_timer = 0;
+		*ptr_ltcr_round_flag = 0;
+		*ptr_ltcr_rr_num = 0;
+		*ptr_ltcr_ipc = 0;
+		*ptr_wa_timer = 0;
+		*ptr_wa_start = 0;
+		*ptr_wa_avg_rrr = 0;
+		*ptr_wa_std_rrr = 0;
+		*ptr_ltcr_start = 0;
+		*ptr_ltcr_maintain = 0;
+		*ptr_wa_avg_rrr_log = 0;
+		*ptr_wa_std_rrr_log = 0;
+	//}
+
 	arch_cpu_idle_prepare();
 	cpuhp_online_idle(state);
 	while (1)

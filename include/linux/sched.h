@@ -634,6 +634,90 @@ struct wake_q_node {
 	struct wake_q_node *next;
 };
 
+//wwj
+#if 0
+#define IA32_FIXED_CTR_CTRL 0x38D
+#define IA32_PERF_GLOBAL_CTRL 0x38F
+#define PERF_FIXED_CTR0 0x309
+#define PERF_FIXED_CTR1 0x30A
+#define PERF_FIXED_CTR2 0x30B
+#define PerfEvtSel0 0x186
+#define PerfEvtSel1 0x187
+#define PerfEvtSel2 0x188
+#define PerfEvtSel3 0x189
+#define IA32_PMC0 0xC1
+#define IA32_PMC1 0xC2
+#define IA32_PMC2 0xC3
+#define IA32_PMC3 0xC4
+#define OFFCORE_RSP_0 0x1A6
+
+#define FC0 PERF_FIXED_CTR0
+#define FC1 PERF_FIXED_CTR1
+#define FC2 PERF_FIXED_CTR2
+#define FCC IA32_FIXED_CTR_CTRL
+#define GLC IA32_PERF_GLOBAL_CTRL
+#define PCC0 PerfEvtSel0
+#define PCC1 PerfEvtSel1
+#define PCC2 PerfEvtSel2
+#define PCC3 PerfEvtSel3
+#define PC0 IA32_PMC0
+#define PC1 IA32_PMC1
+#define PC2 IA32_PMC2
+#define PC3 IA32_PMC3
+#define OFF0 OFFCORE_RSP_0
+#endif
+
+
+
+struct perf_collect {
+	long inst;
+	long cycles;
+	long base;
+	long stall;
+	long miss;
+	long llc_l3hit;
+	long llc_l3miss;
+	long llc_l2miss;
+	long llc_misses;
+	long llc_prefetch;
+	long unhalted;
+	long unhalted1;
+	long unhalted2;
+	long remote_dram;
+	long temp;
+	long llc_remotefwd;
+	long llc_remotehitm;
+};
+
+struct perf_collect_log {
+	long inst;
+	long cycles;
+	long base;
+	long stall;
+	long miss;
+	long llc_l3hit;
+	long llc_l3miss;
+	long llc_l2miss;
+	long llc_misses;
+	long llc_prefetch;
+	long llc_remotefwd;
+	long llc_remotehitm;
+	long unhalted1;
+	long unhalted2;
+	long unhalted;
+	long remote_dram;
+	int collections;
+	long tot_snp;
+	long tot_mem;
+	long tot_coh;
+	long tot_rdram;
+	int prob_snp;
+	int prob_mem;
+	int prob_coh;
+	int prob_rdram;
+};
+//end
+
 struct task_struct {
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 	/*
@@ -644,6 +728,26 @@ struct task_struct {
 #endif
 	/* -1 unrunnable, 0 runnable, >0 stopped: */
 	volatile long			state;
+
+
+	//wwj
+	int is_vcpu;
+	int rrr_prev;
+	int rr_num_prev;
+	int ipc_prev;
+	int rrr;
+	int rr_num;
+	int ipc;
+	struct kvm_vcpu *vcpu;
+	struct list_head ht_node;
+	struct perf_collect temp;
+	struct perf_collect sure;
+	struct perf_collect_log log;
+	int ca_init;
+	unsigned long ca_slowdown;
+	int prio_log;
+	int is_moved;
+	//end
 
 	/*
 	 * This begins the randomizable portion of task_struct. Only

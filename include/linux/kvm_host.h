@@ -267,6 +267,7 @@ struct kvm_vcpu {
 #endif
 	int cpu;
 	int vcpu_id;
+
 	int srcu_idx;
 	int mode;
 	u64 requests;
@@ -277,6 +278,17 @@ struct kvm_vcpu {
 
 	struct mutex mutex;
 	struct kvm_run *run;
+
+	//wwj
+	pid_t userspace_pid;//wwj
+	struct task_struct *vcpu_p;
+	int start;
+	int _start;
+	int sum;
+	int flag;
+	int _flag;
+	int vcpu_init_flag;
+	//end
 
 	int guest_xcr0_loaded;
 	struct swait_queue_head wq;
@@ -446,6 +458,10 @@ struct kvm {
 	struct mm_struct *mm; /* userspace tied to this vm */
 	struct kvm_memslots __rcu *memslots[KVM_ADDRESS_SPACE_NUM];
 	struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
+
+	//wwj
+	int kvm_id;
+	int kvm_init_flag;
 
 	/*
 	 * created_vcpus is protected by kvm->lock, and is incremented

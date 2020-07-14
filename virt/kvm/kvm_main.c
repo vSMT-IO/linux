@@ -69,6 +69,23 @@
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
 
+
+//wwj
+extern int vsmtio_enable_all;
+extern int vsmtio_debug_flag;
+extern int kvm1_pid;
+extern int kvm2_pid;
+extern int kvm3_pid;
+extern int kvm4_pid;
+extern int kvm5_pid;
+extern int kvm6_pid;
+extern int kvm7_pid;
+extern int kvm8_pid;
+extern int vm_num;
+extern int vm_counter;
+extern struct task_struct *find_process_by_pid(pid_t pid);
+//end
+
 /* Architectures should define their poll value according to the halt latency */
 unsigned int halt_poll_ns = KVM_HALT_POLL_NS_DEFAULT;
 module_param(halt_poll_ns, uint, 0644);
@@ -88,6 +105,16 @@ EXPORT_SYMBOL_GPL(halt_poll_ns_grow_start);
 unsigned int halt_poll_ns_shrink;
 module_param(halt_poll_ns_shrink, uint, 0644);
 EXPORT_SYMBOL_GPL(halt_poll_ns_shrink);
+
+/*add by Weiwei Jia - enable/disable adpative tune of halt-poll*/
+unsigned int halt_poll_static_enable_bool = 0;
+module_param(halt_poll_static_enable_bool, uint, 0644);
+EXPORT_SYMBOL_GPL(halt_poll_static_enable_bool);
+
+unsigned int print_avg_poll_time_bool = 0;
+module_param(print_avg_poll_time_bool, uint, 0644);
+EXPORT_SYMBOL_GPL(print_avg_poll_time_bool);
+/*end*/
 
 /*
  * Ordering of locks:
@@ -315,6 +342,15 @@ int kvm_vcpu_init(struct kvm_vcpu *vcpu, struct kvm *kvm, unsigned id)
 	kvm_vcpu_set_dy_eligible(vcpu, false);
 	vcpu->preempted = false;
 	vcpu->ready = false;
+
+	//wwj: before specific arch init
+	vcpu->vcpu_init_flag = 0;
+	vcpu->userspace_pid = 0;
+	vcpu->vcpu_p = NULL;
+	vcpu->start = 0;
+	vcpu->sum = 0;
+	vcpu->flag = 0;
+	//end
 
 	r = kvm_arch_vcpu_init(vcpu);
 	if (r < 0)
@@ -641,6 +677,12 @@ static struct kvm *kvm_create_vm(unsigned long type)
 	mutex_init(&kvm->slots_lock);
 	refcount_set(&kvm->users_count, 1);
 	INIT_LIST_HEAD(&kvm->devices);
+
+	//wwj: better to add a lock to avoid concurrent updates
+	//kvm->kvm_id = vm_counter;
+	//vm_counter += 1;
+	//kvm->kvm_init_flag = 0;
+	//
 
 	r = kvm_arch_init_vm(kvm, type);
 	if (r)
@@ -2338,7 +2380,8 @@ void kvm_vcpu_block(struct kvm_vcpu *vcpu)
 				goto out;
 			}
 			cur = ktime_get();
-		} while (single_task_running() && ktime_before(cur, stop));
+		//} while (single_task_running() && ktime_before(cur, stop));
+		} while (ktime_before(cur, stop));
 	}
 
 	kvm_arch_vcpu_blocking(vcpu);
@@ -2360,13 +2403,17 @@ void kvm_vcpu_block(struct kvm_vcpu *vcpu)
 out:
 	block_ns = ktime_to_ns(cur) - ktime_to_ns(start);
 
+	if (!halt_poll_static_enable_bool) { //added by Weiwei Jia
 	if (!vcpu_valid_wakeup(vcpu))
 		shrink_halt_poll_ns(vcpu);
 	else if (halt_poll_ns) {
-		if (block_ns <= vcpu->halt_poll_ns)
-			;
+		if (block_ns <= vcpu->halt_poll_ns) {
+			//added by Weiwei Jia
+			if (print_avg_poll_time_bool) {
+				printk(KERN_INFO "wwj - vcpu %d's avg poll time is %llu\n", vcpu->vcpu_id, block_ns);
+			} //end
 		/* we had a long block, shrink polling */
-		else if (vcpu->halt_poll_ns && block_ns > halt_poll_ns)
+		} else if (vcpu->halt_poll_ns && block_ns > halt_poll_ns)
 			shrink_halt_poll_ns(vcpu);
 		/* we had a short halt and our poll time is too small */
 		else if (vcpu->halt_poll_ns < halt_poll_ns &&
@@ -2374,6 +2421,7 @@ out:
 			grow_halt_poll_ns(vcpu);
 	} else
 		vcpu->halt_poll_ns = 0;
+	}//added by Weiwei Jia
 
 	trace_kvm_vcpu_wakeup(block_ns, waited, vcpu_valid_wakeup(vcpu));
 	kvm_arch_vcpu_block_finish(vcpu);
@@ -2762,6 +2810,39 @@ static long kvm_vcpu_ioctl(struct file *filp,
 				synchronize_rcu();
 			put_pid(oldpid);
 		}
+		//added by wwj
+		struct pid* pid;
+		//rcu_read_lock();
+		pid = rcu_dereference(vcpu->pid);
+		if (pid) {
+			vcpu->vcpu_p = get_pid_task(pid, PIDTYPE_PID);
+		}
+		//rcu_read_unlock();
+		if (!vcpu->vcpu_p) {
+			vcpu->vcpu_p->is_vcpu = 1;
+		} else {
+			if (vsmtio_enable_all) {
+				printk(KERN_WARNING "pid: %p, kvm_userspace_pid: %d, Cannot get task sturct for the vcpu in ioctl's KVM_RUN!\n",
+						pid, vcpu->kvm->userspace_pid);
+			}
+		}
+
+
+		if (vsmtio_enable_all && vsmtio_debug_flag) {
+			struct task_struct *kvm1_vcpu0_p = find_process_by_pid(kvm1_pid);
+			struct task_struct *kvm2_vcpu0_p = find_process_by_pid(kvm2_pid);
+			struct task_struct *kvm3_vcpu0_p = find_process_by_pid(kvm3_pid);
+			struct task_struct *kvm4_vcpu0_p = find_process_by_pid(kvm4_pid);
+
+			printk(KERN_WARNING "pids in kvm_main are ------------------> %d, %d, %d, %d\n",
+					kvm1_vcpu0_p->pid,
+					kvm2_vcpu0_p->pid,
+					kvm3_vcpu0_p->pid,
+					kvm4_vcpu0_p->pid);
+		}
+
+		//end
+
 		r = kvm_arch_vcpu_ioctl_run(vcpu, vcpu->run);
 		trace_kvm_userspace_exit(vcpu->run->exit_reason, r);
 		break;
@@ -4149,8 +4230,16 @@ static void kvm_uevent_notify_change(unsigned int type, struct kvm *kvm)
 	if (type == KVM_EVENT_CREATE_VM) {
 		add_uevent_var(env, "EVENT=create");
 		kvm->userspace_pid = task_pid_nr(current);
+		//wwj
+		kvm->kvm_id = vm_counter;
+		vm_counter += 1;
+		kvm->kvm_init_flag = 0;
+		//end
 	} else if (type == KVM_EVENT_DESTROY_VM) {
 		add_uevent_var(env, "EVENT=destroy");
+		//wwj
+		vm_counter -= 1;
+		//end
 	}
 	add_uevent_var(env, "PID=%d", kvm->userspace_pid);
 

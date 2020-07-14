@@ -21,6 +21,8 @@
 
 #include "tick-internal.h"
 
+#include <linux/timekeeping.h>//wwj
+
 /*
  * Tick devices
  */
@@ -82,6 +84,11 @@ int tick_is_oneshot_available(void)
  */
 static void tick_periodic(int cpu)
 {
+	//wwj
+//	struct timeval __ts;
+//	do_gettimeofday(&__ts);
+	//printk(KERN_WARNING "wwj-dbg on cpu[%d]: time is %lld ns\n", cpu, ktime_get());
+	//end
 	if (tick_do_timer_cpu == cpu) {
 		write_seqlock(&jiffies_lock);
 

@@ -24,6 +24,18 @@
 
 #include <trace/events/sched.h>
 
+//wwj
+extern struct hrtimer vsmtio_hr_timer;
+extern ktime_t vsmtio_ktime_interval;
+extern s64 vsmtio_starttime_ns;
+extern int vsmtio_enable_all;
+extern int vsmtio_hrtimer_iter;
+#define INTERVAL_BETWEEN_CALLBACKS (1000 * 1000000LL) //100ms (scaled in ns)
+#define NR_ITERATIONS 20
+extern enum hrtimer_restart vsmtio_hrtimer_callback(struct hrtimer *timer);
+extern void init_vsmtio(int cpu);
+//end
+
 /*
  * Targeted preemption latency for CPU-bound tasks:
  *
@@ -4187,6 +4199,9 @@ set_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 static int
 wakeup_preempt_entity(struct sched_entity *curr, struct sched_entity *se);
 
+
+extern void do_ca(struct task_struct *pa, struct task_struct *pb);
+
 /*
  * Pick the next process, keeping these things in mind, in this order:
  * 1) keep things fair between processes/task groups
@@ -4239,6 +4254,42 @@ pick_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 	 */
 	if (cfs_rq->next && wakeup_preempt_entity(cfs_rq->next, left) < 1)
 		se = cfs_rq->next;
+
+	//wwj
+	if (vsmtio_enable_all) {
+		int cpu = cpu_of(rq_of(se->cfs_rq));
+		int nr_cpu = num_possible_cpus();
+		int pair_cpu;
+		if (cpu > nr_cpu/2) {
+			pair_cpu = cpu - nr_cpu/2;
+		} else {
+			pair_cpu = cpu + nr_cpu/2;
+		}
+		struct rq *cpu_rq = cpu_rq(pair_cpu);
+		struct task_struct *pair_p = cpu_rq->curr;
+		struct task_struct *_pse = task_of(se);
+		struct sched_entity *_s = __pick_next_entity(se);
+		struct task_struct *_ps;
+		struct sched_entity *_t;
+		struct task_struct *_pt;
+		if (_s) {
+			_ps = task_of(_t);
+			do_ca(pair_p, _ps);
+			do_ca(pair_p, _pse);
+			if (_ps->ca_slowdown < _pse->ca_slowdown) {
+				se = _s;
+			}
+			_t = __pick_next_entity(_s);
+			if (_t) {
+				_pt = task_of(_t);
+				do_ca(pair_p, _pt);
+				if ((_pt->ca_slowdown < _ps->ca_slowdown) &&
+						(_pt->ca_slowdown < _pse->ca_slowdown)) {
+					se = _t;
+				}
+			}
+		}
+	}
 
 	clear_buddies(cfs_rq, se);
 
@@ -10287,6 +10338,11 @@ int alloc_fair_sched_group(struct task_group *tg, struct task_group *parent)
 		init_cfs_rq(cfs_rq);
 		init_tg_cfs_entry(tg, cfs_rq, se, i, parent->se[i]);
 		init_entity_runnable_average(se);
+
+		//wwj
+		//printk(KERN_INFO "init vsmtio module\n");
+		//init_vsmtio(i);
+		//end
 	}
 
 	return 1;
